@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="48d816ad-b30a-4b13-9bd4-eb6f9e36eb7d" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectId" id="1WP3CrG8nOr2PxwVhVghPXiHIQP" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+  </component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings>
+        <option name="useSoftWraps" value="true" />
+      </console-settings>
+    </option>
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="U:\Research\Projects\7Metabolomics\Dev\JUMPm_unlabel_python" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.featureDetection2">
+    <configuration name="deisotope" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="JUMPm_unlabel_python" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/deisotope.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="featureDetection" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="JUMPm_unlabel_python" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/featureDetection.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="featureDetection2" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="JUMPm_unlabel_python" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/featureDetection2.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="generateDB" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="JUMPm_unlabel_python" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/generateDB.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.featureDetection2" />
+        <item itemvalue="Python.featureDetection" />
+        <item itemvalue="Python.deisotope" />
+        <item itemvalue="Python.generateDB" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="ServiceViewManager">
+    <option name="viewStates">
+      <list>
+        <serviceView>
+          <treeState>
+            <expand />
+            <select />
+          </treeState>
+        </serviceView>
+      </list>
+    </option>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="48d816ad-b30a-4b13-9bd4-eb6f9e36eb7d" name="Default Changelist" comment="" />
+      <created>1575391001208</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1575391001208</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="WindowStateProjectService">
+    <state width="878" height="233" key="GridCell.Tab.0.bottom" timestamp="1580318781819">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.0.bottom/0.0.1364.728@0.0.1364.728" timestamp="1579635427424" />
+    <state width="878" height="233" key="GridCell.Tab.0.bottom/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318781819" />
+    <state width="878" height="233" key="GridCell.Tab.0.center" timestamp="1580318781818">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.0.center/0.0.1364.728@0.0.1364.728" timestamp="1579635427424" />
+    <state width="878" height="233" key="GridCell.Tab.0.center/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318781818" />
+    <state width="878" height="233" key="GridCell.Tab.0.left" timestamp="1580318781818">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.0.left/0.0.1364.728@0.0.1364.728" timestamp="1579635427423" />
+    <state width="878" height="233" key="GridCell.Tab.0.left/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318781818" />
+    <state width="878" height="233" key="GridCell.Tab.0.right" timestamp="1580318781819">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.0.right/0.0.1364.728@0.0.1364.728" timestamp="1579635427424" />
+    <state width="878" height="233" key="GridCell.Tab.0.right/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318781819" />
+    <state width="878" height="233" key="GridCell.Tab.1.bottom" timestamp="1580318787602">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.1.bottom/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
+    <state width="878" height="233" key="GridCell.Tab.1.bottom/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318787602" />
+    <state width="878" height="233" key="GridCell.Tab.1.center" timestamp="1580318787602">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.1.center/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
+    <state width="878" height="233" key="GridCell.Tab.1.center/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318787602" />
+    <state width="878" height="233" key="GridCell.Tab.1.left" timestamp="1580318787602">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.1.left/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
+    <state width="878" height="233" key="GridCell.Tab.1.left/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318787602" />
+    <state width="878" height="233" key="GridCell.Tab.1.right" timestamp="1580318787602">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state width="1342" height="233" key="GridCell.Tab.1.right/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
+    <state width="878" height="233" key="GridCell.Tab.1.right/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580318787602" />
+    <state x="1600" y="100" key="SettingsEditor" timestamp="1579208401740">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state x="1600" y="100" key="SettingsEditor/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1579208401740" />
+    <state x="1885" y="145" key="com.intellij.ide.util.TipDialog" timestamp="1580224805315">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state x="507" y="256" key="com.intellij.ide.util.TipDialog/0.0.1600.860/1600.-331.900.1600@0.0.1600.860" timestamp="1579037282978" />
+    <state x="1885" y="145" key="com.intellij.ide.util.TipDialog/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580224805315" />
+    <state x="1624" y="207" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2" timestamp="1579625932686">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state x="1624" y="207" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1579625932686" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/featureDetection2.py</url>
+          <line>346</line>
+          <option name="timeStamp" value="47" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
