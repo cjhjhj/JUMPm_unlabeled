@@ -219,19 +219,9 @@ def insertPeak(mz, intensity, f, specs, params):
         # Check whether an existing feature can be extended
         doInsert = False
         fMzArray = np.array(f['centerMz'])
-        fInd = np.argmin(abs(fMzArray - mz))
-        diff = abs(mz - fMzArray[fInd]) / mz * 1e6
+        fInd = np.where((abs(fMzArray - mz) / mz * 1e6 ) <= tol)[0]
 
-        if diff < tol:  # An existing feature will grow
-            # Recursive m/z mean update
-            # f['mz'][fInd] = (len(f['mz']) * f['mz'][fInd] + mz) / (len(f['mz']) + 1)
-            # f['intensity'][fInd] = max(f['intensity'][fInd], intensity)
-            f['mz'][fInd].append(mz)
-            f['intensity'][fInd].append(intensity)
-            f['scanNumber'][fInd].append(scanNumber)
-            f['rt'][fInd].append(rt)
-            f['centerMz'][fInd] = np.dot(np.array(f['mz'][fInd]), np.array(f['intensity'][fInd])) / np.sum(np.array(f['intensity'][fInd]))
-        else:   # A new feature will be created for the query peak
+        if len(fInd) == 0:  # A new feature will be created for the query peak
             # Check next scan(s) whether the query peak can form a feature
             for i in range(1, len(specs)):
                 mzArray = np.array(specs[i]['m/z array'])
@@ -240,6 +230,38 @@ def insertPeak(mz, intensity, f, specs, params):
                 if diff < tol:
                     doInsert = True
                     break
+        else:   # An existing feature will grow
+            if len(fInd) > 1:
+                # When the query peak is matched to multiple features,
+                # the feature having the lowest index (representative feature) will grow
+                # Other matched features will be merged to the representative feature
+                for i in range(1, len(fInd)):
+                    f['mz'][fInd[0]].extend(f['mz'][fInd[i]])
+                    f['intensity'][fInd[0]].extend(f['intensity'][fInd[i]])
+                    f['scanNumber'][fInd[0]].extend(f['scanNumber'][fInd[i]])
+                    f['rt'][fInd[0]].extend(f['rt'][fInd[i]])
+
+                # Then, remove "merged" features (list comprehension looks slow)
+                for i in sorted(fInd, reverse = True):
+                    del f['mz'][i]
+                    del f['intensity'][i]
+                    del f['scanNumber'][i]
+                    del f['rt'][i]
+                    del f['centerMz'][i]
+
+                # f['centerMz'] = [x for i, x in enumerate(f['centerMz']) if i not in fInd[1:]]
+                # f['mz'] = [x for i, x in enumerate(f['mz']) if i not in fInd[1:]]
+                # f['intensity'] = [x for i, x in enumerate(f['intensity']) if i not in fInd[1:]]
+                # f['scanNumber'] = [x for i, x in enumerate(f['scanNumber']) if i not in fInd[1:]]
+                # f['rt'] = [x for i, x in enumerate(f['rt']) if i not in fInd[1:]]
+
+            # Update the feature
+            fInd = fInd[0]
+            f['mz'][fInd].append(mz)
+            f['intensity'][fInd].append(intensity)
+            f['scanNumber'][fInd].append(scanNumber)
+            f['rt'][fInd].append(rt)
+            f['centerMz'][fInd] = np.dot(np.array(f['mz'][fInd]), np.array(f['intensity'][fInd])) / np.sum(np.array(f['intensity'][fInd]))
     else:
         # When there's no feature yet, a new feature will be created with the following information
         doInsert = True
@@ -247,7 +269,7 @@ def insertPeak(mz, intensity, f, specs, params):
     if doInsert is True:
         if len(f['mz']) > 0:
             # New feature is appended to the feature array
-            ind = fInd
+            ind = np.argmin(abs(fMzArray - mz))
             if mz > fMzArray[ind]:
                 ind += 1
             f['centerMz'].insert(ind, mz)
@@ -329,6 +351,7 @@ with reader:
     ################################
     specArray = []
     for i in range(0, nScans):
+        print ("%i-th scan is being processed" % i)
         # Make an array containing spectra; specArray
         # specArray[0] = current MS1 (i.e i-th MS1 scan)
         # specArray[1] = (i + 1)-th MS1 scan
