@@ -2,9 +2,16 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="48d816ad-b30a-4b13-9bd4-eb6f9e36eb7d" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/featureAlignment.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/featureToMS2.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/progressBar.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/test-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.ipynb_checkpoints/test-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/featureDetection2.py" beforeDir="false" afterPath="$PROJECT_DIR$/featureDetection2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/featureDetection.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/featureDetection2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jumpm_negative_desktop.params" beforeDir="false" afterPath="$PROJECT_DIR$/jumpm_negative_desktop.params" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/test.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -30,6 +37,7 @@
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
   </component>
@@ -45,7 +53,7 @@
       <recent name="U:\Research\Projects\7Metabolomics\Dev\JUMPm_unlabel_python" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.featureDetection2">
+  <component name="RunManager" selected="Python.featureAlignment">
     <configuration name="deisotope" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="JUMPm_unlabel_python" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -59,6 +67,27 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/deisotope.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="featureAlignment" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="JUMPm_unlabel_python" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/featureAlignment.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -109,7 +138,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="generateDB" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="progressBar" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="JUMPm_unlabel_python" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -121,7 +150,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/generateDB.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/progressBar.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -132,10 +161,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.featureDetection2" />
+        <item itemvalue="Python.featureAlignment" />
         <item itemvalue="Python.featureDetection" />
+        <item itemvalue="Python.progressBar" />
+        <item itemvalue="Python.featureDetection2" />
         <item itemvalue="Python.deisotope" />
-        <item itemvalue="Python.generateDB" />
       </list>
     </recent_temporary>
   </component>
@@ -165,69 +195,66 @@
     <servers />
   </component>
   <component name="WindowStateProjectService">
-    <state width="878" height="284" key="GridCell.Tab.0.bottom" timestamp="1580397518892">
+    <state width="1342" height="129" key="GridCell.Tab.0.bottom" timestamp="1581004936951">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.0.bottom/0.0.1364.728@0.0.1364.728" timestamp="1581004936951" />
+    <state width="878" height="384" key="GridCell.Tab.0.bottom/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004520331" />
+    <state width="1342" height="129" key="GridCell.Tab.0.center" timestamp="1581004936951">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.0.center/0.0.1364.728@0.0.1364.728" timestamp="1581004936951" />
+    <state width="878" height="384" key="GridCell.Tab.0.center/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004520331" />
+    <state width="1342" height="129" key="GridCell.Tab.0.left" timestamp="1581004936951">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.0.left/0.0.1364.728@0.0.1364.728" timestamp="1581004936951" />
+    <state width="878" height="384" key="GridCell.Tab.0.left/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004520331" />
+    <state width="1342" height="129" key="GridCell.Tab.0.right" timestamp="1581004936951">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.0.right/0.0.1364.728@0.0.1364.728" timestamp="1581004936951" />
+    <state width="878" height="384" key="GridCell.Tab.0.right/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004520331" />
+    <state width="1342" height="129" key="GridCell.Tab.1.bottom" timestamp="1581004942422">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.1.bottom/0.0.1364.728@0.0.1364.728" timestamp="1581004942422" />
+    <state width="878" height="384" key="GridCell.Tab.1.bottom/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004436876" />
+    <state width="1342" height="129" key="GridCell.Tab.1.center" timestamp="1581004942422">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.1.center/0.0.1364.728@0.0.1364.728" timestamp="1581004942422" />
+    <state width="878" height="384" key="GridCell.Tab.1.center/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004436876" />
+    <state width="1342" height="129" key="GridCell.Tab.1.left" timestamp="1581004942422">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.1.left/0.0.1364.728@0.0.1364.728" timestamp="1581004942422" />
+    <state width="878" height="384" key="GridCell.Tab.1.left/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004436876" />
+    <state width="1342" height="129" key="GridCell.Tab.1.right" timestamp="1581004942422">
+      <screen x="0" y="0" width="1364" height="728" />
+    </state>
+    <state width="1342" height="129" key="GridCell.Tab.1.right/0.0.1364.728@0.0.1364.728" timestamp="1581004942422" />
+    <state width="878" height="384" key="GridCell.Tab.1.right/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1581004436876" />
+    <state x="1600" y="100" key="SettingsEditor" timestamp="1580427464823">
       <screen x="1600" y="-331" width="900" height="1600" />
     </state>
-    <state width="1342" height="233" key="GridCell.Tab.0.bottom/0.0.1364.728@0.0.1364.728" timestamp="1579635427424" />
-    <state width="878" height="284" key="GridCell.Tab.0.bottom/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580397518892" />
-    <state width="878" height="284" key="GridCell.Tab.0.center" timestamp="1580397518892">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.0.center/0.0.1364.728@0.0.1364.728" timestamp="1579635427424" />
-    <state width="878" height="284" key="GridCell.Tab.0.center/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580397518892" />
-    <state width="878" height="284" key="GridCell.Tab.0.left" timestamp="1580397518892">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.0.left/0.0.1364.728@0.0.1364.728" timestamp="1579635427423" />
-    <state width="878" height="284" key="GridCell.Tab.0.left/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580397518892" />
-    <state width="878" height="284" key="GridCell.Tab.0.right" timestamp="1580397518892">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.0.right/0.0.1364.728@0.0.1364.728" timestamp="1579635427424" />
-    <state width="878" height="284" key="GridCell.Tab.0.right/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580397518892" />
-    <state width="878" height="233" key="GridCell.Tab.1.bottom" timestamp="1580341123881">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.1.bottom/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
-    <state width="878" height="233" key="GridCell.Tab.1.bottom/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580341123881" />
-    <state width="878" height="233" key="GridCell.Tab.1.center" timestamp="1580341123881">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.1.center/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
-    <state width="878" height="233" key="GridCell.Tab.1.center/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580341123881" />
-    <state width="878" height="233" key="GridCell.Tab.1.left" timestamp="1580341123881">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.1.left/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
-    <state width="878" height="233" key="GridCell.Tab.1.left/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580341123881" />
-    <state width="878" height="233" key="GridCell.Tab.1.right" timestamp="1580341123881">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state width="1342" height="233" key="GridCell.Tab.1.right/0.0.1364.728@0.0.1364.728" timestamp="1579635413958" />
-    <state width="878" height="233" key="GridCell.Tab.1.right/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580341123881" />
-    <state x="1600" y="100" key="SettingsEditor" timestamp="1579208401740">
-      <screen x="1600" y="-331" width="900" height="1600" />
-    </state>
-    <state x="1600" y="100" key="SettingsEditor/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1579208401740" />
-    <state x="1885" y="145" key="com.intellij.ide.util.TipDialog" timestamp="1580224805315">
+    <state x="1600" y="100" key="SettingsEditor/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580427464823" />
+    <state x="1885" y="145" key="com.intellij.ide.util.TipDialog" timestamp="1580748650255">
       <screen x="1600" y="-331" width="900" height="1600" />
     </state>
     <state x="507" y="256" key="com.intellij.ide.util.TipDialog/0.0.1600.860/1600.-331.900.1600@0.0.1600.860" timestamp="1579037282978" />
-    <state x="1885" y="145" key="com.intellij.ide.util.TipDialog/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580224805315" />
-    <state x="1624" y="207" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2" timestamp="1579625932686">
+    <state x="1885" y="145" key="com.intellij.ide.util.TipDialog/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580748650255" />
+    <state x="1861" y="387" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1580397984654">
       <screen x="1600" y="-331" width="900" height="1600" />
     </state>
-    <state x="1624" y="207" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1579625932686" />
+    <state x="1861" y="387" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580397984654" />
+    <state x="1624" y="207" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2" timestamp="1580853386432">
+      <screen x="1600" y="-331" width="900" height="1600" />
+    </state>
+    <state x="1624" y="207" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2/0.0.1600.860/1600.-331.900.1600@1600.-331.900.1600" timestamp="1580853386432" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/featureDetection2.py</url>
-          <line>369</line>
-          <option name="timeStamp" value="47" />
-        </line-breakpoint>
-      </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
           <properties notifyOnTerminate="true" exception="BaseException">
