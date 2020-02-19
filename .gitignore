@@ -6,3 +6,6 @@ hmdb_metabolites.xml
 HMDB.h5
 PubChem.h5
 profileResult.txt
+*.ipynb
+venv/
+*.db

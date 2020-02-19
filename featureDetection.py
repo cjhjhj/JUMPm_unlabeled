@@ -196,12 +196,14 @@ def getScans(reader, array, scanNums, currIndex, lastIndex, windowSize, params):
             spec = reader[scanNums[i]]
             spec = detectPeaks(spec, params)
             array.append(spec)
+    elif (currIndex + windowSize) < lastIndex:
+        array.pop(0)
+        spec = reader[scanNums[currIndex + windowSize]]
+        spec = detectPeaks(spec, params)
+        array.append(spec)
     else:
-        if (currIndex + windowSize) < lastIndex:
-            array.pop(0)
-            spec = reader[scanNums[currIndex + windowSize]]
-            spec = detectPeaks(spec, params)
-            array.append(spec)
+        array.pop(0)
+
     return array
 
 
@@ -281,43 +283,44 @@ def insertPeak(mz, intensity, f, fMz, specs, params):
 
     return f, fMz, specs
 
+'''
+class progressBar():
+    def __init__(self, nTot):
+        # Initialization
+        self.nTot = nTot
+        self.minorTicks = 5
+        self.majorTicks = 25
+        self.cycleInterval = 50
+        self.cycleCharArray = ["-", "/", '\\', '|']
+        self.cycleI = 0
+        self.curPercent = 0
+        self.counter = 0
+        self.backupCursor = 0
 
-# class progressBar():
-#     def __init__(self, nTot):
-#         # Initialization
-#         self.nTot = nTot
-#         self.minorTicks = 5
-#         self.majorTicks = 25
-#         self.cycleInterval = 50
-#         self.cycleCharArray = ["-", "/", '\\', '|']
-#         self.cycleI = 0
-#         self.curPercent = 0
-#         self.counter = 0
-#         self.backupCursor = 0
-#
-#     def increment(self):
-#         self.counter += 1
-#         if self.counter % self.cycleInterval == 0:
-#             if self.backupCursor == 1:
-#                 print("\b", end='')
-#             print(self.cycleCharArray[self.cycleI], end='')
-#             self.cycleI = (self.cycleI + 1) % len(self.cycleCharArray)
-#             self.backupCursor = 1
-#             sys.stdout.flush()
-#         if (self.counter / self.nTot * 100) >= self.curPercent:
-#             sys.stdout.flush()
-#             if self.curPercent % self.majorTicks == 0:
-#                 if self.backupCursor == 1:
-#                     print("\b", end='')
-#                 print("%d%%" % self.curPercent, end='')
-#                 self.backupCursor = 0
-#                 if self.curPercent == 100:
-#                     print()
-#             else:
-#                 if self.backupCursor == 1:
-#                     print("\b", end='')
-#                 print(".", end='')
-#             self.curPercent += self.minorTicks
+    def increment(self):
+        self.counter += 1
+        if self.counter % self.cycleInterval == 0:
+            if self.backupCursor == 1:
+                print("\b", end='')
+            print(self.cycleCharArray[self.cycleI], end='')
+            self.cycleI = (self.cycleI + 1) % len(self.cycleCharArray)
+            self.backupCursor = 1
+            sys.stdout.flush()
+        if (self.counter / self.nTot * 100) >= self.curPercent:
+            sys.stdout.flush()
+            if self.curPercent % self.majorTicks == 0:
+                if self.backupCursor == 1:
+                    print("\b", end='')
+                print("%d%%" % self.curPercent, end='')
+                self.backupCursor = 0
+                if self.curPercent == 100:
+                    print()
+            else:
+                if self.backupCursor == 1:
+                    print("\b", end='')
+                print(".", end='')
+            self.curPercent += self.minorTicks
+'''
 
 class progressBar:
     def __init__(self, total):
@@ -343,10 +346,9 @@ class progressBar:
         sys.stdout.flush()
 
 
-
-#############
-# Main part #
-#############
+######################
+##### Main part ######
+######################
 # Input: mzXML file
 
 # To-do: expand to mzML
@@ -374,6 +376,7 @@ matchTolerance = float(params['mass_tolerance_peak_matching'])
 ##################
 noiseInfo = {}  # Empty dictionary for noise level information
 features = []
+ms1ToFeatures = {}  # It is necessary for the labeled approach
 featuresCenterMzArray = []
 nFeatures = -1
 
@@ -421,3 +424,16 @@ with reader:
 
     for i in range(0, len(features)):
         features[i]['centerMz'] = featuresCenterMzArray[i]
+        for j in range(0, len(features[i]['scanNumber'])):
+            scanNum = features[i]['scanNumber'][j]
+            if scanNum not in ms1ToFeatures:
+                ms1ToFeatures[scanNum] = {'mz': [features[i]['mz'][j]],
+                                          'intensity':[features[i]['intensity'][j]]}
+            else:
+                ms1ToFeatures[scanNum]['mz'].append(features[i]['mz'][j])
+                ms1ToFeatures[scanNum]['intensity'].append(features[i]['intensity'][j])
+
+
+
+
+    print ("Finished the feature detection")
