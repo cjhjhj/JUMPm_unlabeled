@@ -75,24 +75,3 @@ loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"),
     }
     return(fit)
 }
-
-########
-# Main #
-########
-args = commandArgs(trailingOnly = TRUE)
-args[1] = "refRt.txt"
-args[2] = "compRt.txt"
-args[3] = "compRt_new.txt"
-refRt = read.table(args[1], sep = "\t", row.names = NULL,
-                   stringsAsFactors = F, comment.char = "", check.names = F)
-compRt = read.table(args[2], sep = "\t", row.names = NULL,
-                    stringsAsFactors = F, comment.char = "", check.names = F)
-compRt_new = read.table(args[3], sep = "\t", row.names = NULL,
-                        stringsAsFactors = F, comment.char = "", check.names = F)
-
-x = as.numeric(compRt[, 1])
-y = as.numeric(compRt[, 1]) - as.numeric(refRt[, 1]) ## RT-shifts
-mod = loess.as(x, y, degree = 1, criterion = "aicc",
-               control = loess.control(surface = "direct")) ## This curve represents RT-shifts as a function of compRt
-compRt_new = as.numeric(compRt_new[, 1]) - predict(mod, data.frame(x = as.numeric(compRt_new[, 1])))
-return (compRt_new)

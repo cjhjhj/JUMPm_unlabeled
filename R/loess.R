@@ -1,7 +1,9 @@
 rm(list = ls())
 
-loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"), 
-                    family = c("gaussian", "symmetric"), user.span=NULL, plot=FALSE, ...) {
+# loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"), 
+#                     family = c("gaussian", "symmetric"), user.span=NULL, plot=FALSE, ...) {
+loess.as = function(x, y, degree = 1, criterion="aicc", family="gaussian", user.span=NULL, plot=FALSE, ...) {
+        
     criterion <- match.arg(criterion)
     family <- match.arg(family)
     x <- as.matrix(x)
@@ -40,22 +42,23 @@ loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"),
         return(list(span=result$minimum, criterion=result$objective))
     }
     
+    control = loess.control(surface = "direct")
     if (ncol(x)==1) {
         if (is.null(user.span)) {
-            fit0 <- loess(y ~ x, degree=degree, family = family, data=data.bind, ...)
+            fit0 <- loess(y ~ x, degree=degree, family=family, data=data.bind, control=control, ...)
             span1 <- opt.span(fit0, criterion=criterion)$span
         } else {
             span1 <- user.span
         }		
-        fit <- loess(y ~ x, degree=degree, span=span1, family = family, data=data.bind, ...)
+        fit <- loess(y ~ x, degree=degree, span=span1, family=family, data=data.bind, control=control, ...)
     } else {
         if (is.null(user.span)) {
-            fit0 <- loess(y ~ x1 + x2, degree=degree,family = family, data.bind, ...)
+            fit0 <- loess(y ~ x1 + x2, degree=degree,family=family, data.bind, control=control, ...)
             span1 <- opt.span(fit0, criterion=criterion)$span
         } else {
             span1 <- user.span
         }		
-        fit <- loess(y ~ x1 + x2, degree=degree, span=span1, family = family, data=data.bind,...)
+        fit <- loess(y ~ x1 + x2, degree=degree, span=span1, family=family, data=data.bind, control=control...)
     }
     if (plot){
         if (ncol(x)==1) {
@@ -75,29 +78,3 @@ loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"),
     }
     return(fit)
 }
-
-args = commandArgs(trailingOnly = TRUE)
-# args[1] = "refRt.txt"
-# args[2] = "compRt.txt"
-# args[3] = "compRt_new.txt"
-refRt = read.table(args[1], sep = "\t", row.names = NULL,
-                   stringsAsFactors = F, comment.char = "", check.names = F)
-compRt = read.table(args[2], sep = "\t", row.names = NULL,
-                    stringsAsFactors = F, comment.char = "", check.names = F)
-compRt_new = read.table(args[3], sep = "\t", row.names = NULL,
-stringsAsFactors = F, comment.char = "", check.names = F)
-x = as.numeric(compRt[, 1])
-y = as.numeric(compRt[, 1]) - as.numeric(refRt[, 1]) ## RT-shifts
-
-## Removal of outliers in y (i.e. RT-shift)
-pct = 0.2
-truncatedMean = mean(y[y >= quantile(y, pct / 2) & y <= quantile(y, (1 - pct / 2))])
-truncatedSd = sd(y[y >= quantile(y, pct / 2) & y <= quantile(y, (1 - pct / 2))])
-lL = truncatedMean - 3 * truncatedSd
-uL = truncatedMean + 3 * truncatedSd
-ind = which(y >= lL & y <= uL)
-
-mod = loess.as(x[ind], y[ind], degree = 1, criterion = "aicc",
-               control = loess.control(surface = "direct")) ## This curve represents RT-shifts as a function of comp$Rt
-compRt_new[, 1] = as.numeric(compRt_new[, 1]) - predict(mod, data.frame(x = as.numeric(compRt_new[, 1])))
-write.table(file = "alignment_result.txt", compRt_new, sep = "\t", row.names = F, col.names = F, quote = F)
