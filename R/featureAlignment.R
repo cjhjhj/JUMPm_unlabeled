@@ -438,9 +438,9 @@ matchFeatures = function (ref, comp, refName, compName, rtSd, mzSd, params, LOG)
     
     
         
-    ######################################
-    ## Rescue some "unaligned" features ##
-    ######################################
+    # ######################################
+    # ## Rescue some "unaligned" features ##
+    # ######################################
     # if (rescue == 1) {
     #     rtTolUnit = as.numeric(unlist(strsplit(params$"rt_tolerance_unit", ",")))
     #     mzTolUnit = as.numeric(unlist(strsplit(params$"mz_tolerance_unit", ",")))
@@ -815,7 +815,7 @@ args = commandArgs(trailingOnly = TRUE)
 args[1] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/IROA_IS_NEG_1.1.dev.feature"
 args[2] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/IROA_IS_NEG_2.1.dev.feature"
 args[3] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/IROA_IS_NEG_3.1.dev.feature"
-args[4] = "../jumpm_negative_desktop.params"
+args[4] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/jumpm_negative.params"
 args[5] = nullfile()
 
 ##################################
