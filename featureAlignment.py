@@ -1,11 +1,8 @@
 #!/usr/bin/python
 
-import sys, os, numpy as np
+import sys, os, utils, numpy as np
 import rpy2.robjects as ro
-from numpy.lib.recfunctions import append_fields
 from rpy2.robjects.vectors import IntVector, FloatVector
-import utils
-from pyteomics import mzxml
 
 def calibrateFeatures(ref, comp, parameters):
     # ref and comp are "ndarray"s with the following column name
@@ -500,7 +497,12 @@ def alignFeatures(fArray, fNames, params):
     else:
         print ("    According to the parameter setting, no feature is added to the set of fully-aligned ones")
 
-    return full, partial, unaligned, header
+    # Change ndarrays to masked/structured arrays
+    full = np.core.records.fromarrays(full.transpose(), names = tuple(header))
+    partial = np.core.records.fromarrays(partial.transpose(), names = tuple(header))
+    # unaligned is already a masked/structured array
+
+    return full, partial, unaligned
 
 
 ###########################################
@@ -529,9 +531,6 @@ params = utils.readParams(paramFile)
 fArray = []
 for i in range(nFiles):
     data = np.genfromtxt(featureFiles[i], delimiter = "\t", dtype = None, names = True)
-    # Add a field which indicates the alignment against the reference run
-    alignIndicator = np.zeros((data.shape[0],))
-    data = append_fields(data, 'aligned', data = alignIndicator)
     fArray.append(data)
 
 if nFiles > 1: # Multiple feature files -> alignment is required
@@ -594,7 +593,7 @@ if nFiles > 1: # Multiple feature files -> alignment is required
     #################################################################
     print ("  Feature alignment")
     print ("  =================")
-    fullFeatures, partialFeatures, unalignedFeatures, header = alignFeatures(fArray, featureNames, params)
+    fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(fArray, featureNames, params)
 
     # 1. fullFeatures and partialFeatures are ndarrays
     # For example, there are 4 feature files and each feature has 13 columns (i.e. index, RT, minRT, etc.)
@@ -613,17 +612,34 @@ if nFiles > 1: # Multiple feature files -> alignment is required
 
 
 
-
-    ##############################################################
-    # Summarize/organize the aligned features and print to files #
-    ##############################################################
-
-    print()
-
 else:
     print ("  Since a single feature is used, the feature alignment is skipped")
-    fullFeatures = np.array(fArray[0].data.tolist())    # Masked array to 2D numpy array
+    fullFeatures = np.copy(fArray[0])    # Masked array to 2D numpy array
 
+###########################
+# Write features to files #
+###########################
+# This output file is for user's information
+# Subsequent processes will be performed using "fullFeature" object instead of loading the file itself
+
+
+# ####################################
+# # Features to MS2 spectra matching #
+# ####################################
+# # This routine looks for MS2 spectra responsible for each feature
+# # These MS2 spectra will be merged into a synthetic MS2 spectrum and then used for metabolite identification
+#
+# # Parameters
+# tolIsolation = float(params["isolation_windows"])
+# tolPrecursor = float(params["tol_precursor"])
+# tolIntraMS2 = float(params["tol_intra_ms2_consolidation"])
+# tolInterMS2 = float(params["tol_inter_ms2_consolidation"])
+#
+# # Investigate every MS2 spectrum in each run
+# for i in range(nFiles):
+
+
+print ()
 
 
 
