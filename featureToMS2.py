@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, re, pickle, utils, numpy as np
+import os, sys, re, pickle, utils, numpy as np, pandas as pd
 from pyteomics import mzxml
 
 def ms2Consolidation(ms2, scans, tol, type):
@@ -86,10 +86,8 @@ tolPrecursor = float(params["tol_precursor"])
 tolIntraMS2Consolidation = float(params["tol_intra_ms2_consolidation"])
 tolInterMS2Consolidation = float(params["tol_inter_ms2_consolidation"])
 
-nFeatures = full.shape[0]
-
-
-'''
+df = pd.DataFrame(data = full)
+nFeatures = df.shape[0]
 featureToScan = np.empty((nFeatures, nFiles), dtype = object)
 featureToSpec = np.empty((nFeatures, nFiles), dtype = object)
 
@@ -108,46 +106,50 @@ for file in mzXMLFiles:
 
     # Column name should be well organized and managed #############################
 
-    # Handling column names
-    fileBasename, _ = os.path.splitext(os.path.basename(file))
-    r = re.compile(fileBasename + ".*minMS1.*")
-    colMinMS1 = list(filter(r.match, full.dtype.names))[0]
-    r = re.compile(fileBasename + ".*maxMS1.*")
-    colMaxMS1 = list(filter(r.match, full.dtype.names))[0]
-    r = re.compile(fileBasename + ".*mz.*")
-    colMz = list(filter(r.match, full.dtype.names))[0]
-    r = re.compile(fileBasename + ".*TF.*")
-    colTF = list(filter(r.match, full.dtype.names))[0]
+    # # Handling column names
+    # fileBasename, _ = os.path.splitext(os.path.basename(file))
+    # r = re.compile(fileBasename + ".*minMS1.*")
+    # colMinMS1 = list(filter(r.match, full.dtype.names))[0]
+    # r = re.compile(fileBasename + ".*maxMS1.*")
+    # colMaxMS1 = list(filter(r.match, full.dtype.names))[0]
+    # r = re.compile(fileBasename + ".*mz.*")
+    # colMz = list(filter(r.match, full.dtype.names))[0]
+    # r = re.compile(fileBasename + ".*TF.*")
+    # colTF = list(filter(r.match, full.dtype.names))[0]
 
     #################################################################################
 
-    # print ("  Reading %s" % os.path.basename(file))
-    # reader = mzxml.read(file)
-    # nScans = len(list(reader))  # Traverse the iterator (i.e. reader) to count the number of total spectra
+    print ("  Reading %s" % os.path.basename(file))
+    reader = mzxml.MzXML(file)
+    nScans = len(reader)
 
-    nScans = 45000
-
+    fileBasename, _ = os.path.splitext(os.path.basename(file))
+    colInd = [i for i, item in enumerate(df.columns) if re.search(fileBasename, item)]
+    subDf = df.iloc[:, colInd]
+    subDf.columns = [s.split("_")[-1] for s in subDf.columns]
     ms2Dict = {}
-    with mzxml.read(file) as reader:
+    progress = utils.progressBar(nScans)
+    for i in range(nScans):
         print ("  Finding MS2 spectra of %s responsible for features" % os.path.basename(file))
-        progress = utils.progressBar(nScans)
+
         for spec in reader:
             progress.increment()
+            if int(spec["num"]) < min(subDf["minMS1ScanNumber"]) or int(spec["num"]) > max(subDf["maxMS1ScanNumber"]):
+                continue
             msLevel = int(spec["msLevel"])
             if msLevel == 1:
-                # surveyScanNumber = spec['num']
-                survey = spec
+               survey = spec
             elif msLevel == 2:
                 # Find MS2 scans which satisfy
                 # 1. Their precursor m/z values are within feature's m/z +/- isolation_window
                 # 2. Their presumable survey scans are between feature's min. and max. MS1 scan numbers
                 # 3. Feature width should be less than a threshold
                 precMz = float(spec["precursorMz"][0]["precursorMz"])
-                fInd = np.where((full[colMinMS1] < int(survey["num"])) &
-                                (full[colMaxMS1] > int(survey["num"])) &
-                                (full[colMz] >= (precMz - tolIsolation)) &
-                                (full[colMz] <= (precMz + tolIsolation)) &
-                                (full[colTF] < pctTfThreshold))[0]
+                fInd = np.where((subDf["minMS1ScanNumber"] < int(survey["num"])) &
+                                (subDf["maxMS1ScanNumber"] > int(survey["num"])) &
+                                (subDf["mz"] >= (precMz - tolIsolation)) &
+                                (subDf["mz"] <= (precMz + tolIsolation)) &
+                                (subDf["PercentageTF"] < pctTfThreshold))[0]
                 # fInd = np.where((full[colMinMS1] < int(surveyScanNumber)) &
                 #                 (full[colMaxMS1] > int(surveyScanNumber)) &
                 #                 (full[colMz] >= (precMz - tolIsolation)) &
@@ -179,7 +181,7 @@ for file in mzXMLFiles:
                     # surveyScan = reader[surveyScanNumber]
                     ppi = []
                     for i in range(len(fInd)):
-                        mz = full[colMz][fInd[i]]
+                        mz = subDf["mz"][fInd[i]]
                         lL = mz - mz * tolPrecursor / 1e6
                         uL = mz + mz * tolPrecursor / 1e6
                         ind = np.where((survey["m/z array"] >= lL) & (survey["m/z array"] <= uL))[0]
@@ -238,3 +240,4 @@ print ()
 # with open("featureToMS2_2.pickle", "wb") as f:
 #     pickle.dump([featureFiles, full, params, featureToScan], f)
 
+'''

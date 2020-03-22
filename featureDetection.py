@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, re, numpy as np
+import os, sys, re, numpy as np, pandas as pd
 from pyteomics import mzxml
 from numpy.lib.recfunctions import append_fields
 
@@ -469,7 +469,7 @@ def detectFeatures(inputFile, paramFile):
 
 # To-do: expand to mzML
 
-inputFile = r"U:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML"
+inputFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML"
 reader = mzxml.read(inputFile)
 
 ##############
@@ -534,9 +534,9 @@ with reader:
             features, featuresCenterMzArray, specArray = insertPeak(mz_j, intensity_j, features, featuresCenterMzArray,
                                                                     specArray, params)
 
-#################################################
-# Organization/summarization of output features #
-#################################################
+###################################
+# Organization of output features #
+###################################
 for i in range(0, len(features)):
     # Output format (i.e. columns)
     # 1. mz: mean m/z of the feature
@@ -562,49 +562,50 @@ for i in range(0, len(features)):
     MS1 = features[i]["scanNumber"][ind]
     minMS1 = min(features[i]["scanNumber"])
     maxMS1 = max(features[i]["scanNumber"])
+    isotope = 0
 
     if i == 0:
-        f = np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1)],
-                     dtype="f8, f8, i4, f8, f8, f8, i4, i4, i4")
+        f = np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1, isotope)],
+                     dtype="f8, f8, i4, f8, f8, f8, i4, i4, i4, i4")
     else:
-        f = np.append(f, np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1)],
-                                       dtype=f.dtype))
+        f = np.append(f, np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1, isotope)],
+                                  dtype=f.dtype))
+        for j in range(0, len(features[i]["scanNumber"])):
+            scanNum = features[i]["scanNumber"][j]
+            if scanNum not in ms1ToFeatures:
+                ms1ToFeatures[scanNum] = {"mz": [features[i]["mz"][j]],
+                                          "intensity": [features[i]["intensity"][j]]}
+            else:
+                ms1ToFeatures[scanNum]["mz"].append(features[i]["mz"][j])
+                ms1ToFeatures[scanNum]["intensity"].append(features[i]["intensity"][j])
 
-    for j in range(0, len(features[i]["scanNumber"])):
-        scanNum = features[i]["scanNumber"][j]
-        if scanNum not in ms1ToFeatures:
-            ms1ToFeatures[scanNum] = {"mz": [features[i]["mz"][j]],
-                                      "intensity": [features[i]["intensity"][j]]}
-        else:
-            ms1ToFeatures[scanNum]["mz"].append(features[i]["mz"][j])
-            ms1ToFeatures[scanNum]["intensity"].append(features[i]["intensity"][j])
-
-f.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1")
+f.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "isotope")
 
 ##########################
 # Decharging of features #
 ##########################
-f = np.sort(f, order = "intensity")[::-1]   # Sort features in descending order of intensity
+f = np.sort(f, order="intensity")[::-1]  # Sort features in descending order of intensity
 delC = 1.00335  # Mass difference between 13C and 12C
-tolPpm = 10 # Tolerance for decharging
+tolPpm = 10  # Tolerance for decharging
 maxCharge = 5
 for i in range(f.shape[0]):
+    print (i)
     mz = f["mz"][i]
     intensity = f["intensity"][i]
     lL = mz - mz * tolPpm / 1e6
     uL = delC + mz + mz * tolPpm / 1e6
     scan = f["MS1"][i]
-    ind = np.where((f["maxMS1"] > (scan - 50)) & (f["minMS1"] < (scan + 50)))[0]
+    ind = np.where((f["MS1"] > (scan - 50)) & (f["MS1"] < (scan + 50)))[0]
     charge = 0
     for j in ind:
-        if j == i:
+        if j == i or f["isotope"][j] == 1:
             continue
         else:
             mz_j = f["mz"][j]
             intensity_j = f["intensity"][j]
             # A presumable isotopic peak intensity should be greater than 20% of feature intensity (to prevent the inclusion of small/noisy peaks)
-            # and smaller than 200% of feature intensity (to prevent that a monoisotopic peak is merged for decharging of a small/noisy peak)
-            if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (2 * intensity):
+            # and smaller than 500% (i.e. inverse of 20%) of feature intensity (to prevent that a monoisotopic peak is merged for decharging of a small/noisy peak)
+            if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (5 * intensity):
                 # Look for potential isotopic peak and decharge
                 diff = np.around(1 / abs(mz - mz_j)).astype(int)
                 if diff == 0 or diff >= maxCharge:
@@ -614,9 +615,9 @@ for i in range(f.shape[0]):
                     continue
                 else:
                     charge = diff
+                    f["isotope"][j] = 1
                     break
             else:
                 continue
     f["z"][i] = charge
-
 '''
