@@ -1,12 +1,8 @@
 #!/usr/bin/python
 
 import os, sys, re, pickle, utils, numpy as np, pandas as pd
+from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
-import rpy2.robjects as ro
-from rpy2.robjects.vectors import IntVector, FloatVector
-
-
-
 
 
 def intraConsolidation(ms2, scans, tol):
@@ -18,7 +14,7 @@ def intraConsolidation(ms2, scans, tol):
     del scans[ind]
     if len(scans) > 1:
         for i in range(len(scans)):
-            p = ms2Dict[scans[i]]
+            p = ms2[scans[i]]
             for j in range(len(spec["mz"])):
                 if len(p["mz"]) == 0:
                     break

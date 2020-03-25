@@ -1,7 +1,7 @@
 import re, sys, os, numpy as np
 
 
-def readParams(paramFile):
+def getParams(paramFile):
     parameters = dict()
     with open(paramFile, 'r') as file:
         for line in file:
@@ -14,10 +14,12 @@ def readParams(paramFile):
             parameters[key] = val
     return parameters
 
+
 def readFeatures(featureFile):
     with open(featureFile, 'r') as file:
         features = file.readlines()
     return features
+
 
 class progressBar:
     def __init__(self, total):

@@ -519,7 +519,7 @@ nFiles = len(featureFiles)
 ################################
 # Load parameters and features #
 ################################
-params = utils.readParams(paramFile)
+params = utils.getParams(paramFile)
 # Features from .feature files are stored in fArray. For example,
 # featureFiles = [file1, file2, file3]
 # fArray[0] = features from file1 (which has column names like 'index', 'mz', etc.)
