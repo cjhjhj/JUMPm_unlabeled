@@ -56,20 +56,23 @@ from pyteomics import mzxml
 # print()
 
 
-mzXMLFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML"
-reader = mzxml.MzXML(mzXMLFile)
-nScans = len(reader)
-with reader:
-    progress = utils.progressBar(nScans)
-    for spec in reader:
-        progress.increment()
-        msLevel = int(spec["msLevel"])
-        if msLevel == 1:
-            # surveyScanNumber = spec['num']
-            survey = spec
-        elif msLevel == 2:
-            precMz = float(spec["precursorMz"][0]["precursorMz"])
+# mzXMLFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML"
+# reader = mzxml.MzXML(mzXMLFile)
+# nScans = len(reader)
+# with reader:
+#     progress = utils.progressBar(nScans)
+#     for spec in reader:
+#         progress.increment()
+#         msLevel = int(spec["msLevel"])
+#         if msLevel == 1:
+#             # surveyScanNumber = spec['num']
+#             survey = spec
+#         elif msLevel == 2:
+#             precMz = float(spec["precursorMz"][0]["precursorMz"])
+#
+#
+# print ()
 
-
-print ()
-
+import urllib
+f = urllib.urlopen("ftp://ftp.ncbi.nlm.nih.gov/pubchem/Compound/CURRENT-Full/XML/")
+print(f.read())
