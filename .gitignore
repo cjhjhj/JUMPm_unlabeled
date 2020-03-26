@@ -9,3 +9,7 @@ profileResult.txt
 *.ipynb
 venv/
 *.db
+*.gz
+*.sdf
+*.md5
+*.python

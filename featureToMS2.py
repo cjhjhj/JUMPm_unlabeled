@@ -257,12 +257,15 @@ nFeatures = df.shape[0]
 # Consolidation of MS2 spectra between runs #
 #############################################
 print ("  Merging MS2 spectra between runs for each feature")
+ms2Array = []
 progress = utils.progressBar(nFeatures)
 for i in range(nFeatures):
     progress.increment()
     if sum(featureToSpec[i, :] == None) == nFiles:
-        continue
-    spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
+        ms2Array = np.append(ms2Array, None)
+    else:
+        spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
+        ms2Array = np.append(ms2Array, np.array(spec))
 print ()
 
 
