@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, utils, numpy as np
+import sys, os, utils, numpy as np, pandas as pd
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import IntVector, FloatVector
 
@@ -21,8 +21,8 @@ def calibrateFeatures(ref, comp, parameters):
 
     initMzTol = int(params["tol_initial"])
     sdWidth = int(params["sd_width"])
-    ref = np.sort(ref, order = "intensity")[::-1]   # Sort features in descending order of intensity
-    comp = np.sort(comp, order = "intensity")[::-1]
+    ref = ref.sort_values("intensity", ascending = False, ignore_index = True)
+    comp = comp.sort_values("intensity", ascending = False, ignore_index = True)
 
     # Calibration of RT and m/z globally
     print ("  Global calibration of features is being performed")
@@ -76,15 +76,16 @@ def globalCalibration(ref, comp, mzTol = 20):
         rt = ref["RT"][i]
         if z == 0:
             # For a reference feature with undetermined charge, consider all possible charges in compared feature
-            rowInd = np.where((comp["mz"] >= lL) & (comp["mz"] < uL))[0]
+            # rowInd = np.where((comp["mz"] >= lL) & (comp["mz"] < uL))[0]
+            rowInd = comp[(comp["mz"] >= lL) & (comp["mz"] < uL)].index
         else:
-            rowInd = np.where((comp["mz"] >= lL) & (comp["mz"] < uL) & (comp['z'] == z))[0]
-
+            # rowInd = np.where((comp["mz"] >= lL) & (comp["mz"] < uL) & (comp['z'] == z))[0]
+            rowInd = comp[(comp["mz"] >= lL) & (comp["mz"] < uL) & (comp["z"] == z)].index
         if len(rowInd) > 0:
             rowInd = rowInd[0]
             rtShifts.append(comp["RT"][rowInd] - rt)
             mzShifts.append((comp["mz"][rowInd] - mz) / mz * 1e6)
-            comp = np.delete(comp, rowInd, 0)
+            comp = comp.drop(rowInd)
             j += 1
 
         i += 1
@@ -181,14 +182,62 @@ def loess():
     return ro.r(rstring)
 
 
+def findMatchedSubset(ref, comp, rtSd, mzSd, params):
+    ref = ref.sort_values("intensity", ascending = False, ignore_index = True)
+    comp = comp.sort_values("intensity", ascending = False, ignore_index = True)
+
+    n = ref.shape[0]
+    if not isinstance(rtSd, (list, np.ndarray)):
+        rtSd = np.repeat(rtSd, n)
+    if not isinstance(mzSd, (list, np.ndarray)):
+        mzSd = np.repeat(mzSd, n)
+    rtSd[rtSd == 0] = min(rtSd[rtSd > 0])
+    mzSd[mzSd == 0] = min(mzSd[mzSd > 0])
+    sdWidth = float(params["sd_width"])
+    rtTol = rtSd * sdWidth
+    mzTol = mzSd * sdWidth
+
+    # Look for a small dataframe containing matched features between "ref" and "comp"
+    # subDf = pd.DataFrame(columns = ["refMz", "refRt", "refIntensity", "compMz", "compRt", "compIntensity"])
+    dict = {}
+    j = 0
+    for i in range(n):   # For each feature in "ref", look for a matching one in "comp"
+        z = ref["z"][i]
+        mz = ref["mz"][i]
+        rt = ref["RT"][i]
+        intensity = ref["intensity"][i]
+        rtDev = comp["RT"] - rt
+        mzDev = (comp["mz"] - mz) / mz * 1e6    # Unit of PPM
+        if z == 0:  # Undetermined charge
+            # For the feature with undetermined charge,
+            # look for a matching one without considering charge state
+            rowInd = comp[(abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i])].index
+        else:
+            # For the feature with a charge state,
+            # look for a matching one with considering charge state
+            rowInd = comp[(abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]) & (comp['z'] == z)].index
+        if len(rowInd) > 0:
+            # When multiple features in "comp" are matched to a feature in "ref",
+            # choose the one with the highest intensity
+            # Since "comp" is sorted by descending order of intensity,
+            # the first one has the highest intensity
+            rowInd = rowInd[0]
+            dict[j] = {"refMz": mz, "refRt": rt, "refIntensity": intensity,
+                       "compMz": comp["mz"][rowInd], "compRt": comp["RT"][rowInd], "compIntensity": comp["intensity"][rowInd]}
+            j += 1
+
+    subDf = pd.DataFrame.from_dict(dict, "index")
+    return subDf
+
+
 def localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, type):
-    refInd, compInd = findMatchedFeatures(ref, comp, rtSd, mzSd, params)
+    subDf = findMatchedSubset(ref, comp, rtSd, mzSd, params)
 
     # Perform LOESS regression to calibrated RT and m/z
-    refRt = ref["RT"][refInd]
-    compRt = comp["RT"][compInd]
-    refMz = ref["mz"][refInd]
-    compMz = comp["mz"][compInd]
+    refRt = subDf["refRt"]
+    compRt = subDf["compRt"]
+    refMz = subDf["refMz"]
+    compMz = subDf["compMz"]
 
     if type == "RT":    # RT-calibration
         if (refRt == compRt).all():
@@ -252,9 +301,9 @@ def localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, type):
     return ref, comp, rtSd, mzSd
 
 
-def findMatchedFeatures(ref, comp, rtSd, mzSd, params):
-    ref = np.sort(ref, order = "intensity")[::-1]   # Sort features in descending order of intensity
-    comp = np.sort(comp, order = "intensity")[::-1]
+def matchFeatures(ref, comp, rtSd, mzSd, params, step = "calibration"):
+    ref = ref.sort_values("intensity", ascending=False, ignore_index=True)
+    comp = comp.sort_values("intensity", ascending=False, ignore_index=True)
 
     n = ref.shape[0]
     if not isinstance(rtSd, (list, np.ndarray)):
@@ -268,35 +317,54 @@ def findMatchedFeatures(ref, comp, rtSd, mzSd, params):
     mzTol = mzSd * sdWidth
 
     # Look for matching features between "ref" and "comp"
-    refInd, compInd = [], []
+    d = {}
+    j = 0
     for i in range(n):   # For each feature in "ref", look for a matching one in "comp"
         z = ref["z"][i]
         mz = ref["mz"][i]
         rt = ref["RT"][i]
         rtDev = comp["RT"] - rt
         mzDev = (comp["mz"] - mz) / mz * 1e6    # Unit of PPM
-        if z == 0:  # Undetermined charge
-            # For the feature with undetermined charge,
-            # look for a matching one without considering charge state
-            rowInd = np.where((abs(rtDev) <= rtTol[i]) &
-                              (abs(mzDev) <= mzTol[i]))[0]
-        else:
-            # For the feature with a charge state,
-            # look for a matching one with considering charge state
-            rowInd = np.where((abs(rtDev) <= rtTol[i]) &
-                              (abs(mzDev) <= mzTol[i]) &
-                              (comp['z'] == z))[0]
+        rowInd = comp[(abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i])].index
+
+        # When there is/are matched feature(s) in "comp" run
         if len(rowInd) > 0:
-            # When multiple features in "comp" are matched to a feature in "ref",
-            # choose the one with the highest intensity
-            # Since "comp" is sorted by descending order of intensity,
-            # the first one has the highest intensity
-            rowInd = rowInd[0]
-            if rowInd in compInd:
-                continue
+            if z == 0:
+                rowInd = rowInd[0]
+                dr = ref.iloc[i].to_dict()
+                dr = dict((str("ref_") + k, v) for (k, v) in dr.items())
+                dc = comp.loc[rowInd].to_dict()
+                dc = dict((str("comp_") + k, v) for (k, v) in dc.items())
+                d[j] = {**dr, **dc}
+                j += 1
+                comp = comp.drop(rowInd)
             else:
-                refInd.append(i)
-                compInd.append(rowInd)
+                if comp["z"][rowInd[0]] == 0:
+                    rowInd = rowInd[0]
+                    dr = ref.iloc[i].to_dict()
+                    dr = dict((str("ref_") + k, v) for (k, v) in dr.items())
+                    dc = comp.loc[rowInd].to_dict()
+                    dc = dict((str("comp_") + k, v) for (k, v) in dc.items())
+                    d[j] = {**dr, **dc}
+                    j += 1
+                    comp = comp.drop(rowInd)
+                else:
+                    # For the feature with a charge state,
+                    # look for a matching one with considering charge state
+                    rowInd = comp[(abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]) & (comp["z"] == z)].index
+                    if len(rowInd) > 0:
+                        rowInd = rowInd[0]
+                        dr = ref.iloc[i].to_dict()
+                        dr = dict((str("ref_") + k, v) for (k, v) in dr.items())
+                        dc = comp.loc[rowInd].to_dict()
+                        dc = dict((str("comp_") + k, v) for (k, v) in dc.items())
+                        d[j] = {**dr, **dc}
+                        j += 1
+                        comp = comp.drop(rowInd)
+        else:
+            continue
+
+
 
     # Optional/advanced function for rescuing some "unaligned" features by loosening tolerances
     '''
@@ -310,7 +378,8 @@ def findMatchedFeatures(ref, comp, rtSd, mzSd, params):
                                              rtTolUnit[i], rtTol[i], mzTolUnit[i], mzTol[i])
     '''
 
-    return refInd, compInd
+    df = pd.DataFrame.from_dict(d, "index")
+    return df
 
 
 def rescueFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, rtTol, mzTolUnit, mzTol):
@@ -393,54 +462,6 @@ def rescueFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, rtTol, mzT
     return (refInd, compInd)
 
 
-def matchFeatures(ref, comp, rtSd, mzSd, params):
-    ref = np.sort(ref, order = "intensity")[::-1]   # Sort features in descending order of intensity
-    comp = np.sort(comp, order = "intensity")[::-1]
-
-    n = ref.shape[0]
-    if not isinstance(rtSd, (list, np.ndarray)):
-        rtSd = np.repeat(rtSd, n)
-    if not isinstance(mzSd, (list, np.ndarray)):
-        mzSd = np.repeat(mzSd, n)
-    rtSd[rtSd == 0] = min(rtSd[rtSd > 0])
-    mzSd[mzSd == 0] = min(mzSd[mzSd > 0])
-    sdWidth = float(params["sd_width"])
-    rtTol = rtSd * sdWidth
-    mzTol = mzSd * sdWidth
-
-    # Look for matching features between "ref" and "comp"
-    refInd, compInd = [], []
-    for i in range(n):   # For each feature in "ref", look for a matching one in "comp"
-        z = ref["z"][i]
-        mz = ref["mz"][i]
-        rt = ref["RT"][i]
-        rtDev = comp["RT"] - rt
-        mzDev = (comp["mz"] - mz) / mz * 1e6    # Unit of PPM
-        rowInd = np.where((abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]))[0]
-
-        if len(rowInd) > 0:
-            if z == 0:  # Undetermined charge
-                rowInd = rowInd[0]
-                if rowInd not in compInd:
-                    refInd.append(i)
-                    compInd.append(rowInd)
-            else:
-                rowInd = rowInd[0]
-                if comp["z"][rowInd] == 0:
-                    if rowInd not in compInd:
-                        refInd.append(i)
-                        compInd.append(rowInd)
-                else:
-                    rowInd = np.where((abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]) & (comp["z"][rowInd] == z))[0]
-                    if len(rowInd) > 0:
-                        rowInd = rowInd[0]
-                        if rowInd not in compInd:
-                            refInd.append(i)
-                            compInd.append(rowInd)
-
-    return refInd, compInd
-
-
 def alignFeatures(fArray, fNames, params):
     n = len(fNames)
     indArray = - np.ones((fArray[refNo].shape[0], n), dtype = int)
@@ -451,7 +472,7 @@ def alignFeatures(fArray, fNames, params):
             compName = os.path.basename(featureFiles[i])
             print ("  " + refName + ": %d features (reference run)" % fArray[refNo].shape[0])
             print ("  " + compName + ": %d features (compared run)" % fArray[i].shape[0])
-            refInd, compInd = matchFeatures(fArray[refNo], fArray[i], rtSdArray[i], mzSdArray[i], params)
+            refInd, compInd = matchFeatures(fArray[refNo], fArray[i], rtSdArray[i], mzSdArray[i], params, "align")
 
             # Alignment indication
             # indArray is [# reference features x # feature files] matrix
@@ -577,8 +598,19 @@ params = utils.getParams(paramFile)
 # Note that "/" (slash) is ignored when the file is loaded through "genfromtxt"
 fArray = []
 for i in range(nFiles):
-    data = np.genfromtxt(featureFiles[i], delimiter = "\t", dtype = None, names = True)
-    fArray.append(data)
+    df = pd.read_table(featureFiles[i], sep = "\t")
+
+
+    # Change the column names
+    df.rename(columns = {"m/z": "mz", "MS1ScanNumber": "MS1", "minMS1ScanNumber": "minMS1",
+                         "maxMS1ScanNumber": "maxMS1", "S/N": "SNratio"},
+              inplace = True)
+
+
+
+    fArray.append(df)
+    # data = np.genfromtxt(featureFiles[i], delimiter = "\t", dtype = None, names = True)
+    # fArray.append(data)
 
 if nFiles > 1: # Multiple feature files -> alignment is required
     print ("  Feature calibration")

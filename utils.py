@@ -9,9 +9,17 @@ def getParams(paramFile):
                 continue
             line = re.sub(r'#.*', '', line)  # Remove comments (start from '#')
             line = re.sub(r'\s*', '', line)  # Remove all whitespaces
-            key = line.split('=')[0]
-            val = line.split('=')[1]
-            parameters[key] = val
+
+            # Exception for "feature_files" parameter
+            if "feature_files" in parameters and line.endswith("feature"):
+                parameters["feature_files"].append(line)
+            else:
+                key = line.split('=')[0]
+                val = line.split('=')[1]
+                if key == "feature_files":
+                    parameters[key] = [val]
+                else:
+                    parameters[key] = val
     return parameters
 
 

@@ -1,22 +1,8 @@
 #!/usr/bin/python
 
-import os, sys, re, numpy as np, pandas as pd
+import os, sys, re, pickle, utils, numpy as np, pandas as pd
 from pyteomics import mzxml
 from numpy.lib.recfunctions import append_fields
-
-
-def getParams(paramFile):
-    parameters = dict()
-    with open(paramFile, "r") as file:
-        for line in file:
-            if re.search(r"^#", line) or re.search(r"^\s", line):
-                continue
-            line = re.sub(r"#.*", "", line)  # Remove comments (start from "#")
-            line = re.sub(r"\s*", "", line)  # Remove all whitespaces
-            key = line.split("=")[0]
-            val = line.split("=")[1]
-            parameters[key] = val
-    return parameters
 
 
 def detectPeaks(spec, params):
@@ -34,12 +20,12 @@ def detectPeaks(spec, params):
     mzArray = spec["m/z array"]
     intensityArray = spec["intensity array"]
     nPeaks = len(mzArray)
-    newMzArray = []
-    newIntensityArray = []
+    newMzArray = np.array([])
+    newIntensityArray = np.array([])
 
     # Detect peaks (i.e. centroidization of MS1 spectrum)
     if isCentroided == 0:  # i.e. Profile mode MS1
-        for i in range(2, nPeaks - 1):
+        for i in range(2, nPeaks - 2):
             if intensityArray[i] > 0:
                 # Consider 2 points before and after the point of interest x, i.e. 5 point window
                 b2, b1, x, a1, a2 = intensityArray[(i - 2):(i + 3)]
@@ -51,8 +37,8 @@ def detectPeaks(spec, params):
                         maxInd = findMaxPeakIndex(i, intensityArray)
                         if (maxInd - minInd) > 2:
                             newMz, newIntensity = findPeakCenter(minInd, i, maxInd, mzArray, intensityArray)
-                            newMzArray.append(newMz)
-                            newIntensityArray.append(newIntensity)
+                            newMzArray = np.append(newMzArray, newMz)
+                            newIntensityArray = np.append(newIntensityArray, newIntensity)
 
         # Update "spec" object
         spec["m/z array"] = newMzArray
@@ -138,471 +124,684 @@ def findPeakMatch(array, value, tolerance):
         return False, 0
 
 
-def reduceMS1(spec, array):
+def reduceMS1(spec, noise, array):
     # Input
     # spec: spectrum object read by pyteomics
     # array: index of "m/z array" (and "intensity array") to be retained
-    redMzArray = [spec["m/z array"][i] for i in array]
-    redIntensityArray = [spec["intensity array"][i] for i in array]
+    array = array.astype(int)
 
-    # Replace m/z array and intensity array of spec with reduced ones
-    spec["m/z array"] = redMzArray
-    spec["intensity array"] = redIntensityArray
+    # Noise level estimation
+    ind = np.setdiff1d(range(len(spec["m/z array"])), array)
+    noiseLevel = np.percentile(spec["intensity array"][ind], 25)    # 25 percentile = 1st quartile = median of bottom 50%
+    # noiseLevel = np.percentile([spec["intensity array"][i] for i in ind], 25)   # 25 percentile = 1st quartile = median of bottom 50%
+    noise[spec["num"]] = noiseLevel
 
-    # Extract intensity information of "noisy peaks"
-    noiseIndex = np.setdiff1d(range(0, len(spec["intensity array"])), array)
-    noiseIntensityArray = [spec["intensity array"][i] for i in noiseIndex]
-    noiseIntensityLevel = np.percentile(noiseIntensityArray, 75)  # Third quartile = median of top 50%
+    # Reduce m/z array and intensity array of spec and replace
+    spec["m/z array"] = spec["m/z array"][array]
+    spec["intensity array"] = spec["intensity array"][array]
+    # rMz = [spec["m/z array"][i] for i in array]
+    # rIntensity = [spec["intensity array"][i] for i in array]
+    # spec["m/z array"] = rMz
+    # spec["intensity array"] = rIntensity
 
-    # Return "reduced" spectrum and noise intensity level of the input spectrum (scan)
-    return spec, noiseIntensityLevel
+    return spec, noise
 
 
-def getScans(reader, array, scanNums, currIndex, lastIndex, windowSize, params):
-    # When currIndex = 0 (i.e. first scan)
-    # array = [currIndex-th scan,
-    #          (currIndex + 1)-th scan,
-    #          ...
-    #          (currIndex + windowSize)-th scan
-
-    # When 0 < currIndex < lastIndex (i.e. between first and last scan)
-    # 1. Remove the first element from array
-    # 2. Centroid (detectPeak) (currIndex + windowSize)-th scan
-    # 3. Append the "centroided" (currIndex + windowSize)-th scan to the array
-
-    # Example
-    # currIndex = 0, windowSize = 3 (i.e. gap = 2, allow "skip" up to 2 scans), then
-    # array = [centroided 0-th scan,
-    #          centroided 1-th scan,
-    #          centroided 2-th scan,
-    #          centroided 3-th scan]
-    # currIndex = 1, then,
-    # 1. Remove the first element from array
-    #    array = [centroided 1-th scan,
-    #             centroided 2-th scan,
-    #             centroided 3-th scan]
-    # 2. Centroid (currIndex + windowSize)-th scan, i.e. 4-th scan
-    # 3. Append the above centroided 4-th scan
-    #    array = [centroided 1-th scan,
-    #             centroided 2-th scan,
-    #             centroided 3-th scan,
-    #             centroided 4-th scan]
-
-    if len(array) == 0:  # when currentIndex = 0
-        array = []
-        for i in range(currIndex, currIndex + windowSize + 1):
-            spec = reader[scanNums[i]]
-            spec = detectPeaks(spec, params)
-            array.append(spec)
-    elif (currIndex + windowSize) < lastIndex:
-        array.pop(0)
-        spec = reader[scanNums[currIndex + windowSize]]
-        spec = detectPeaks(spec, params)
-        array.append(spec)
+def getClosest(spec, mz, tol):
+    ind = np.argmin(abs(spec["m/z array"] - mz))
+    diff = abs(mz - spec["m/z array"][ind]) / mz * 1e6
+    if diff < tol:
+        return 1, ind
     else:
-        array.pop(0)
-
-    return array
-
-
-def insertPeak(mz, intensity, f, fMz, specs, params):
-    # Input arguments
-    # mz = m/z of the query peak
-    # intensity = intensity of the query peak
-    # specs = array of spectra, 0-th element is the query spectrum
-    # f = array of features
-    # fMz = array of features" m/z values (center m/z)
-    # params = dictionary of parameters
-    tol = float(params["mass_tolerance_peak_matching"])
-    scanNumber = int(specs[0]["num"])  # MS1 scan number of the query spectrum
-    rt = float(specs[0]["retentionTime"])  # RT of the query spectrum
-
-    if len(f) > 0:  # If any feature exists
-        # Check whether an existing feature can be extended
-        doInsert = False
-        fInd = np.where((abs(fMz - mz) / mz * 1e6) <= tol)[0]
-
-        if len(fInd) == 0:  # A new feature will be created for the query peak
-            # Check next scan(s) whether the query peak can form a feature
-            for i in range(1, len(specs)):
-                mzArray = np.array(specs[i]["m/z array"])
-                mzInd = np.argmin(abs(mzArray - mz))
-                diff = abs(mz - mzArray[mzInd]) / mz * 1e6
-                if diff < tol:
-                    doInsert = True
-                    break
-        else:  # An existing feature will grow
-            if len(fInd) > 1:
-                # When the query peak is matched to multiple features,
-                # the feature having the lowest index (representative feature) will grow
-                # Other matched features will be merged to the representative feature
-                for i in range(1, len(fInd)):
-                    f[fInd[0]]["mz"].extend(f[fInd[i]]["mz"])
-                    f[fInd[0]]["intensity"].extend(f[fInd[i]]["intensity"])
-                    f[fInd[0]]["scanNumber"].extend(f[fInd[i]]["scanNumber"])
-                    f[fInd[0]]["rt"].extend(f[fInd[i]]["rt"])
-
-                # Then, remove "merged" features (list comprehension looks slow)
-                for i in sorted(fInd[1:], reverse=True):
-                    del f[i]
-                    del fMz[i]
-
-                # f["centerMz"] = [x for i, x in enumerate(f["centerMz"]) if i not in fInd[1:]]
-                # f["mz"] = [x for i, x in enumerate(f["mz"]) if i not in fInd[1:]]
-                # f["intensity"] = [x for i, x in enumerate(f["intensity"]) if i not in fInd[1:]]
-                # f["scanNumber"] = [x for i, x in enumerate(f["scanNumber"]) if i not in fInd[1:]]
-                # f["rt"] = [x for i, x in enumerate(f["rt"]) if i not in fInd[1:]]
-
-            # Update the feature
-            fInd = fInd[0]
-            f[fInd]["mz"].append(mz)
-            f[fInd]["intensity"].append(intensity)
-            f[fInd]["scanNumber"].append(scanNumber)
-            f[fInd]["rt"].append(rt)
-            centerMz = np.dot(np.array(f[fInd]["mz"]), np.array(f[fInd]["intensity"])) / np.sum(
-                np.array(f[fInd]["intensity"]))
-            fMz[fInd] = centerMz
-    else:
-        # When there"s no feature yet, a new feature will be created with the following information
-        doInsert = True
-
-    if doInsert is True:
-        if len(f) > 0:
-            # New feature is appended to the feature array
-            ind = np.argmin(abs(fMz - mz))
-            if mz > fMz[ind]:
-                ind += 1
-            f.insert(ind, {"mz": [mz], "intensity": [intensity], "scanNumber": [scanNumber], "rt": [rt]})
-            fMz.insert(ind, mz)
-        else:
-            # Initial feature array is created (it should be executed only once)
-            f.append({"mz": [mz], "intensity": [intensity], "scanNumber": [scanNumber], "rt": [rt]})
-            fMz.append(mz)
-
-    return f, fMz, specs
-
-
-class progressBar:
-    def __init__(self, total):
-        self.total = total
-        self.barLength = 20
-        self.count = 0
-        self.progress = 0
-        self.block = 0
-        self.status = ""
-
-    def increment(self):
-        self.count += 1
-        self.progress = self.count / self.total
-        self.block = int(round(self.barLength * self.progress))
-        if self.progress == 1:
-            self.status = "Done...\r\n"
-        else:
-            self.status = ""
-        #         self.status = str(self.count) + "/" + str(self.total)
-        text = "\rProgress: [{0}] {1}% {2}".format("#" * self.block + "-" * (self.barLength - self.block),
-                                                   int(self.progress * 100), self.status)
-        sys.stdout.write(text)
-        sys.stdout.flush()
+        return 0, None
 
 
 def detectFeatures(inputFile, paramFile):
     ##############
     # Parameters #
     ##############
-    params = getParams(paramFile)
+    params = utils.getParams(paramFile)
     firstScan = int(params["first_scan_extraction"])
     lastScan = int(params["last_scan_extraction"])
     gap = int(params["skipping_scans"])
     scanWindow = gap + 1
+    matchPpm = float(params["mass_tolerance_peak_matching"])
 
     ##################
     # Initialization #
     ##################
-    filename = os.path.basename(inputFile)
     reader = mzxml.read(inputFile)
-    features = []
-    ms1ToFeatures = {}  # It is necessary for the labeled approach
-    featuresCenterMzArray = []
-    # nTotScans = len(list(reader))
+    f = []  # Feature array
+    nFeatures = -1
+    cache = []
+    noise = {}  # Empty dictionary for noise level information
+    oldMinInd = -1
+    oldMaxInd = -1
+
+    ms = []
     with reader:
         ############################
         # Get MS1 scan information #
         ############################
-        nScans = 0  # MS1 scans
-        scanNumArray = []
-        print("Extraction of MS1 spectra from %s. It may take a while..." % filename)
-        # progress = progressBar(nTotScans)
+        msCount = 0
+        filename = os.path.basename(inputFile)
+        print("  Extraction of MS1 spectra from %s" % filename)
         for spec in reader:
-            # progress.increment()
             msLevel = int(spec["msLevel"])
             scanNum = int(spec["num"])
             if msLevel == 1 and firstScan <= scanNum <= lastScan:
-                nScans += 1
-                scanNumArray.append(spec["num"])  # Scan numbers of MS1 scans
+                ms.append(spec)
+                msCount += 1
             elif scanNum > lastScan:
                 break
+        print("  Done")
 
-        print("Done")
+    ################################
+    # Feature (3D-peak) generation #
+    ################################
+    print("  Feature detection ")
+    progress = utils.progressBar(msCount)
+    for i in range(msCount):
+        progress.increment()
+        minInd = max(0, i - gap - 1)
+        maxInd = min(msCount - 1, i + gap + 1)
+        if i == 0:
+            for j in range(maxInd + 1):
+                spec = detectPeaks(ms[j], params)
+                spec["index"] = j
+                cache.append(spec)
+        else:
+            for j in range(oldMinInd, minInd):
+                cache.pop(0)  # Remove the first element in cache
+            for j in range(oldMaxInd + 1, maxInd + 1):
+                spec = detectPeaks(ms[j], params)
+                spec["index"] = j
+                cache.append(spec)
 
-        ################################
-        # Feature (3D-peak) generation #
-        ################################
-        print("Feature detection ")
-        progress = progressBar(nScans)
-        specArray = []
-        for i in range(0, nScans):
-            progress.increment()
-            # Make an array containing spectra; specArray
-            # specArray[0] = current MS1 (i.e i-th MS1 scan)
-            # specArray[1] = (i + 1)-th MS1 scan
-            # ...
-            # specArray[scanWindow] = (i + scanWindow)-th MS1 scan
-            specArray = getScans(reader, specArray, scanNumArray, i, nScans, scanWindow, params)
+        ##################
+        # Reduction step #
+        ##################
+        p = cache[i - minInd]
+        pCount = len(p["m/z array"])
+        valids = np.array([])
+        count = 0
+        for j in range(pCount):
+            cm = p["m/z array"][j]
+            match = 0
+            nTry = 0
+            # Backward search
+            for k in range(i - 1, minInd - 1, -1):
+                q = cache[k - minInd]
+                match, ind = getClosest(q, cm, matchPpm)
+                if match == 1:
+                    break
+                nTry += 1
+                if nTry > scanWindow:
+                    break
+            if match == 0:  # Forward search
+                nTry = 0
+                for k in range(i + 1, maxInd + 1):
+                    q = cache[k - minInd]
+                    match, ind = getClosest(q, cm, matchPpm)
+                    if match == 1:
+                        break
+                    nTry += 1
+                    if nTry > scanWindow:
+                        break
+            if match == 1:
+                valids = np.append(valids, j)
 
-            # Insert peaks
-            # 3D-peak generation step by inserting peaks in neighboring scan(s)
-            for j in range(0, len(specArray[0]["m/z array"])):
-                mz_j = specArray[0]["m/z array"][j]
-                intensity_j = specArray[0]["intensity array"][j]
-                features, featuresCenterMzArray, specArray = insertPeak(mz_j, intensity_j, features,
-                                                                        featuresCenterMzArray,
-                                                                        specArray, params)
+        # Peak reduction and noise-level estimation
+        p, noise = reduceMS1(p, noise, valids)
 
-    #################################################
-    # Organization and summarization of output features #
-    #################################################
-    for i in range(0, len(features)):
-        # Output format (i.e. columns)
-        # 1. mz: mean m/z of the feature
-        # 2. intensity: intensity of the feature (maximum intensity among peaks consist of the feature)
-        # 3. z: charge state of the feature
-        # 4. RT: mean RT of the feature
-        # 5. minRT
-        # 6. maxRT
-        # 7. MS1 (representative MS1 scan number of the feature)
-        # 8. minMS1 (minimum MS1 scan number, related with minRT)
-        # 9. maxMS1 (maximum MS1 scan number, related with maxRT)
-        # 10. SNratio (signal-to-noise ratio of the feature)
-        # 11. percentageTF (percentage of true feature -> similar to feature width)
+        #####################
+        # Peak merging step #
+        #####################
+        cache[i - minInd] = p
+        pCount = len(p["m/z array"])
+        for j in range(pCount):
+            cm = p["m/z array"][j]
+            match = 0
+            nTry = 0
+            matchedPeakInd = []
+            # Backward search
+            for k in range(i - 1, minInd - 1, -1):
+                q = cache[k - minInd]
+                matchIndicator, ind = getClosest(q, cm, matchPpm)
+                # $matchIndicator = 1 means that the j-th (reduced) peak in the i-th scan
+                # can form a 3D-peak with $ind-th (reduced) peak in the previous scan (%q)
+                if matchIndicator == 1:
+                    matchedPeakInd.append(q["featureIndex"][ind])
+                    match = 1
+            if match == 1:
+                matchedPeakInd = list(set(matchedPeakInd))  # Make the list unique
+                fInd = None
+                if len(matchedPeakInd) > 1:  # There are multiple matches to the peaks in previous scans
+                    fInd = min(matchedPeakInd)
+                    for m in matchedPeakInd:
+                        # Merge to the lowest indexed feature and remove the "merged" features
+                        if m != fInd:
+                            f[fInd]["mz"].extend(f[m]["mz"])
+                            f[fInd]["intensity"].extend(f[m]["intensity"])
+                            f[fInd]["num"].extend(f[m]["num"])
+                            f[fInd]["rt"].extend(f[m]["rt"])
+                            f[fInd]["index"].extend(f[m]["index"])
 
-        mz = featuresCenterMzArray[i]
-        intensity = max(features[i]["intensity"])
-        ind = features[i]["intensity"].index(intensity)  # ind gives the index of the representative peak of the feature
-        # z = features[i]["charge"]
-        z = 1
-        RT = features[i]["rt"][ind]
-        minRT = min(features[i]["rt"])
-        maxRT = max(features[i]["rt"])
-        MS1 = features[i]["scanNumber"][ind]
-        minMS1 = min(features[i]["scanNumber"])
-        maxMS1 = max(features[i]["scanNumber"])
-        isotope = 0
+                            # Revise cache array
+                            for s in f[m]["index"]:
+                                for t in range(len(cache)):
+                                    if cache[t]["index"] == s:
+                                        for u in range(len(cache[t]["featureIndex"])):
+                                            if cache[t]["featureIndex"][u] == m:
+                                                cache[t]["featureIndex"][u] = fInd
+                            f[m] = None  # Keep the size of feature array
+                else:
+                    fInd = matchedPeakInd[0]
+                if "featureIndex" in cache[i - minInd]:
+                    cache[i - minInd]["featureIndex"].append(fInd)
+                else:
+                    cache[i - minInd]["featureIndex"] = [fInd]
+                f[fInd]["mz"].append(p["m/z array"][j])
+                f[fInd]["intensity"].append(p["intensity array"][j])
+                f[fInd]["num"].append(p["num"])
+                f[fInd]["rt"].append(p["retentionTime"])
+                f[fInd]["index"].append(p["index"])
+
+
+
+                # print("feature #%d merges the peak of %f in %s" % (fInd, p["m/z array"][j], p["num"]))
+
+
+
+            if match != 1:
+                if i < msCount:
+                    nFeatures += 1
+                    if "featureIndex" in cache[i - minInd]:
+                        cache[i - minInd]["featureIndex"].append(nFeatures)
+                    else:
+                        cache[i - minInd]["featureIndex"] = [nFeatures]
+                    f.append({"mz": [p["m/z array"][j]],
+                              "intensity": [p["intensity array"][j]],
+                              "num": [p["num"]],
+                              "rt": [p["retentionTime"]],
+                              "index": [i]})
+
+
+
+                    # print("feature #%d is created from the peak of %f in %s" % (nFeatures, p["m/z array"][j], p["num"]))
+
+
+
+        oldMinInd = minInd
+        oldMaxInd = maxInd
+
+    # # For development purpose #########################
+    # with open("featureDetection.pickle", "rb") as file:
+    #     vars = pickle.load(file)
+    #     f = vars[0]
+    #     params = vars[1]
+    #     noise = vars[2]
+    # ###################################################
+
+    # Remove empty features
+    f = [i for i in f if i is not None]
+
+    ##################
+    # Filtering step #
+    ##################
+    # A feature may contain multiple peaks from one scan
+    # In this case, one with the largest intensity is chosen
+    gMinRt, gMaxRt = 0, 0  # Global minimum and maximum RT over all features
+    for i in range(len(f)):
+        if len(f[i]["num"]) != len(list(set(f[i]["num"]))):
+            temp = {}
+            for j in range(len(f[i]["num"])):
+                if f[i]["num"][j] in temp:
+                    currIntensity = f[i]["intensity"][j]
+                    if currIntensity > temp[f[i]["num"][j]]["intensity"]:
+                        temp[f[i]["num"][j]]["intensity"] = currIntensity
+                        temp[f[i]["num"][j]]["index"] = j
+                else:
+                    temp[f[i]["num"][j]] = {}
+                    temp[f[i]["num"][j]]["intensity"] = f[i]["intensity"][j]
+                    temp[f[i]["num"][j]]["index"] = j
+            uInd = []
+            for key in sorted(temp.keys()):
+                uInd.append(temp[key]["index"])
+            f[i]["mz"] = [f[i]["mz"][u] for u in uInd]
+            f[i]["intensity"] = [f[i]["intensity"][u] for u in uInd]
+            f[i]["num"] = [f[i]["num"][u] for u in uInd]
+            f[i]["rt"] = [f[i]["rt"][u] for u in uInd]
+            f[i]["index"] = [f[i]["index"][u] for u in uInd]
 
         if i == 0:
-            f = np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1, isotope)],
-                         dtype="f8, f8, i4, f8, f8, f8, i4, i4, i4, i4")
+            gMinRt = min(f[i]["rt"])
+            gMaxRt = max(f[i]["rt"])
         else:
-            f = np.append(f, np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1, isotope)],
-                                      dtype=f.dtype))
+            if min(f[i]["rt"]) < gMinRt:
+                gMinRt = min(f[i]["rt"])
+            if max(f[i]["rt"]) > gMaxRt:
+                gMaxRt = max(f[i]["rt"])
 
-        for j in range(0, len(features[i]["scanNumber"])):
-            scanNum = features[i]["scanNumber"][j]
-            if scanNum not in ms1ToFeatures:
-                ms1ToFeatures[scanNum] = {"mz": [features[i]["mz"][j]],
-                                          "intensity": [features[i]["intensity"][j]]}
+    ###################################
+    # Organization of output features #
+    ###################################
+    n = 0
+    ms1ToFeatures = {}
+    for i in range(len(f)):
+        # 1. mz: mean m/z of a feauture = weighted average of m/z and intensity
+        mz = np.sum(np.multiply(f[i]["mz"], f[i]["intensity"])) / np.sum(f[i]["intensity"])
+
+        # 2. intensity: intensity of a feature (maximum intensity among the peaks consist of the feature)
+        intensity = max(f[i]["intensity"])
+
+        # 3. z: charge of the feature, set to 1 now, but modified later
+        z = 1
+        isotope = 0  # Will be used later
+
+        # 4. RT: RT of the representative peak (i.e. strongest peak) of a feature
+        ind = np.argmax(f[i]["intensity"])
+        rt = f[i]["rt"][ind]
+
+        # 5. minRT and maxRT
+        minRt = min(f[i]["rt"])
+        maxRt = max(f[i]["rt"])
+
+        # 6. MS1 scan number of the representative peak of a feature
+        ms1 = f[i]["num"][ind]
+
+        # 7. minMS1 and maxMS1
+        minMs1 = min(f[i]["num"])
+        maxMs1 = max(f[i]["num"])
+
+        # 8. SNratio (signal-to-noise ratio of the feature)
+        if ms1 in noise:
+            noiseLevel = noise[ms1]
+        else:
+            noiseLevel = 500
+        snRatio = intensity / noiseLevel
+        featureIntensityThreshold = noiseLevel * float(params["signal_noise_ratio"])
+
+        if intensity >= featureIntensityThreshold:
+            # 9. Percentage of true feature
+            pctTF = (maxRt - minRt) / (gMaxRt - gMinRt) * 100
+            # Organize features in a structured numpy array form
+            if n == 0:
+                features = np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
+                                    dtype="f8, f8, i4, f8, f8, f8, i4, i4, i4, f8, f8, i4")
+                n += 1
             else:
-                ms1ToFeatures[scanNum]["mz"].append(features[i]["mz"][j])
-                ms1ToFeatures[scanNum]["intensity"].append(features[i]["intensity"][j])
+                features = np.append(features,
+                                     np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
+                                              dtype=features.dtype))
+            for j in range(len(f[i]["num"])):
+                num = f[i]["num"][j]
+                if num not in ms1ToFeatures:
+                    ms1ToFeatures[num] = {"mz": [f[i]["mz"][j]],
+                                          "intensity": [f[i]["intensity"][j]]}
+                else:
+                    ms1ToFeatures[num]["mz"].append(f[i]["mz"][j])
+                    ms1ToFeatures[num]["intensity"].append(f[i]["intensity"][j])
+        else:
+            continue
 
-    f.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "isotope")
+    features.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "SNratio", "PercentageTF", "isotope")
 
     ##########################
     # Decharging of features #
     ##########################
-    f = np.sort(f, order="intensity")[::-1]  # Sort features in descending order of intensity
+    features = np.sort(features, order = "intensity")[::-1]  # Sort features in descending order of intensity
     delC = 1.00335  # Mass difference between 13C and 12C
     tolPpm = 10  # Tolerance for decharging
-    maxCharge = 5
-    for i in range(f.shape[0]):
-        mz = f["mz"][i]
-        intensity = f["intensity"][i]
+    maxCharge = 6
+    for i in range(features.shape[0]):
+        mz = features["mz"][i]
+        intensity = features["intensity"][i]
         lL = mz - mz * tolPpm / 1e6
         uL = delC + mz + mz * tolPpm / 1e6
-        scan = f["MS1"][i]
-        ind = np.where((f["maxMS1"] > (scan - 50)) & (f["minMS1"] < (scan + 50)))[0]
+        scan = features["MS1"][i]
+        ind = np.where((features["MS1"] > (scan - 50)) & (features["MS1"] < (scan + 50)))[0]
         charge = 0
         for j in ind:
-            if j == i or f["isotope"][j] == 1:
+            if j == i:
                 continue
             else:
-                mz_j = f["mz"][j]
-                intensity_j = f["intensity"][j]
+                mz_j = features["mz"][j]
+                intensity_j = features["intensity"][j]
                 # A presumable isotopic peak intensity should be greater than 20% of feature intensity (to prevent the inclusion of small/noisy peaks)
                 # and smaller than 500% (i.e. inverse of 20%) of feature intensity (to prevent that a monoisotopic peak is merged for decharging of a small/noisy peak)
-                if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (5 * intensity):
+                # if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (5 * intensity):
+                if lL <= mz_j < uL:
                     # Look for potential isotopic peak and decharge
                     diff = np.around(1 / abs(mz - mz_j)).astype(int)
-                    if diff == 0 or diff >= maxCharge:
+                    if diff == 0 or diff > maxCharge:
                         continue
                     dev = abs(abs(mz - mz_j) - (delC / diff))
                     if dev > (mz * tolPpm / 1e6):
                         continue
                     else:
                         charge = diff
-                        f["isotope"][j] = 1
+                        if intensity > intensity_j:
+                            features["isotope"][j] = 1
                         break
                 else:
                     continue
-        f["z"][i] = charge
+        features["z"][i] = charge
 
     # Remove the features from isotopic peaks
-    ind = np.where(f["isotope"] == 1)[0]
-    f = np.delete(f, ind)
-    return f
+    ind = np.where(features["isotope"] == 1)[0]
+    features = np.delete(features, ind)
+    print ()
+    return features # Numpy structured array
+
 
 '''
 ######################
 ##### Main part ######
 ######################
-# Input: mzXML file
-
-# To-do: expand to mzML
-
 inputFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML"
 reader = mzxml.read(inputFile)
 
 ##############
 # Parameters #
 ##############
-paramFile = "jumpm_negative_desktop.params"
+paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
 params = getParams(paramFile)
 firstScan = int(params["first_scan_extraction"])
 lastScan = int(params["last_scan_extraction"])
 gap = int(params["skipping_scans"])
 scanWindow = gap + 1
-matchTolerance = float(params["mass_tolerance_peak_matching"])
+matchPpm = float(params["mass_tolerance_peak_matching"])
 
 ##################
 # Initialization #
 ##################
-noiseInfo = {}  # Empty dictionary for noise level information
-features = []
-ms1ToFeatures = {}  # It is necessary for the labeled approach
-featuresCenterMzArray = []
+f = []  # Feature array
 nFeatures = -1
+cache = []
+noise = {}  # Empty dictionary for noise level information
+oldMinInd = -1
+oldMaxInd = -1
 
+ms = []
 with reader:
     ############################
     # Get MS1 scan information #
     ############################
-    nScans = 0
-    # ms1ScanNumArray: List[Any] = []
-    scanNumArray = []
+    msCount = 0
     print("Extraction of MS1 spectra from input file(s)")
     for spec in reader:
         msLevel = int(spec["msLevel"])
         scanNum = int(spec["num"])
         if msLevel == 1 and firstScan <= scanNum <= lastScan:
-            nScans += 1
-            scanNumArray.append(spec["num"])  # Scan numbers of MS1 scans
+            ms.append(spec)
+            msCount += 1
         elif scanNum > lastScan:
             break
-
     print("Done\n")
 
-    ################################
-    # Feature (3D-peak) generation #
-    ################################
-    print("Feature detection ")
-    progress = progressBar(nScans)
-    specArray = []
-    for i in range(0, nScans):
-        progress.increment()
-        # Make an array containing spectra; specArray
-        # specArray[0] = current MS1 (i.e i-th MS1 scan)
-        # specArray[1] = (i + 1)-th MS1 scan
-        # ...
-        # specArray[scanWindow] = (i + scanWindow)-th MS1 scan
-        specArray = getScans(reader, specArray, scanNumArray, i, nScans, scanWindow, params)
+################################
+# Feature (3D-peak) generation #
+################################
+print("Feature detection ")
+progress = utils.progressBar(msCount)
+for i in range(msCount):
+    progress.increment()
+    minInd = max(0, i - gap - 1)
+    maxInd = min(msCount - 1, i + gap + 1)
+    if i == 0:
+        for j in range(maxInd + 1):
+            spec = detectPeaks(ms[j], params)
+            spec["index"] = j
+            cache.append(spec)
+    else:
+        for j in range(oldMinInd, minInd):
+            cache.pop(0)  # Remove the first element in cache
+        for j in range(oldMaxInd + 1, maxInd + 1):
+            spec = detectPeaks(ms[j], params)
+            spec["index"] = j
+            cache.append(spec)
 
-        # Insert peaks
-        # 3D-peak generation step by inserting peaks in neighboring scan(s)
-        for j in range(0, len(specArray[0]["m/z array"])):
-            mz_j = specArray[0]["m/z array"][j]
-            intensity_j = specArray[0]["intensity array"][j]
-            features, featuresCenterMzArray, specArray = insertPeak(mz_j, intensity_j, features, featuresCenterMzArray,
-                                                                    specArray, params)
+    ##################
+    # Reduction step #
+    ##################
+    p = cache[i - minInd]
+    pCount = len(p["m/z array"])
+    valids = []
+    count = 0
+    for j in range(pCount):
+        cm = p["m/z array"][j]
+        match = 0
+        nTry = 0
+        # Backward search
+        for k in range(i - 1, minInd - 1, -1):
+            q = cache[k - minInd]
+            match, ind = getClosest(q, cm, matchPpm)
+            if match == 1:
+                break
+            nTry += 1
+            if nTry > scanWindow:
+                break
+        if match == 0:  # Forward search
+            nTry = 0
+            for k in range(i + 1, maxInd + 1):
+                q = cache[k - minInd]
+                match, ind = getClosest(q, cm, matchPpm)
+                if match == 1:
+                    break
+                nTry += 1
+                if nTry > scanWindow:
+                    break
+        if match == 1:
+            valids.append(j)
+
+    # Peak reduction and noise-level estimation
+    p, noise = reduceMS1(p, noise, valids)
+
+    #####################
+    # Peak merging step #
+    #####################
+    cache[i - minInd] = p
+    pCount = len(p["m/z array"])
+    for j in range(pCount):
+        cm = p["m/z array"][j]
+        match = 0
+        nTry = 0
+        matchedPeakInd = []
+        # Backward search
+        for k in range(i - 1, minInd - 1, -1):
+            q = cache[k - minInd]
+            matchIndicator, ind = getClosest(q, cm, matchPpm)
+            # $matchIndicator = 1 means that the j-th (reduced) peak in the i-th scan
+            # can form a 3D-peak with $ind-th (reduced) peak in the previous scan (%q)
+            if matchIndicator == 1:
+                matchedPeakInd.append(q["featureIndex"][ind])
+                match = 1
+        if match == 1:
+            matchedPeakInd = list(set(matchedPeakInd))  # Make the list unique
+            fInd = None
+            if len(matchedPeakInd) > 1: # There are multiple matches to the peaks in previous scans
+                fInd = min(matchedPeakInd)
+                for m in matchedPeakInd:
+                    # Merge to the lowest indexed feature and remove the "merged" features
+                    if m != fInd:
+                        f[fInd]["mz"].extend(f[m]["mz"])
+                        f[fInd]["intensity"].extend(f[m]["intensity"])
+                        f[fInd]["num"].extend(f[m]["num"])
+                        f[fInd]["rt"].extend(f[m]["rt"])
+                        f[fInd]["index"].extend(f[m]["index"])
+
+                        # Revise cache array
+                        for s in f[m]["index"]:
+                            for t in range(len(cache)):
+                                if cache[t]["index"] == s:
+                                    for u in range(len(cache[t]["featureIndex"])):
+                                        if cache[t]["featureIndex"][u] == m:
+                                            cache[t]["featureIndex"][u] = fInd
+                        f[m] = None # Keep the size of feature array
+            else:
+                fInd = matchedPeakInd[0]
+            if "featureIndex" in cache[i - minInd]:
+                cache[i - minInd]["featureIndex"].append(fInd)
+            else:
+                cache[i - minInd]["featureIndex"] = [fInd]
+            f[fInd]["mz"].append(p["m/z array"][j])
+            f[fInd]["intensity"].append(p["intensity array"][j])
+            f[fInd]["num"].append(p["num"])
+            f[fInd]["rt"].append(p["retentionTime"])
+            f[fInd]["index"].append(p["index"])
+
+        if match != 1:
+            if i < msCount:
+                nFeatures += 1
+                if "featureIndex" in cache[i - minInd]:
+                    cache[i - minInd]["featureIndex"].append(nFeatures)
+                else:
+                    cache[i - minInd]["featureIndex"] = [nFeatures]
+                f.append({"mz": [p["m/z array"][j]],
+                          "intensity": [p["intensity array"][j]],
+                          "num": [p["num"]],
+                          "rt": [p["retentionTime"]],
+                          "index": [i]})
+
+    oldMinInd = minInd
+    oldMaxInd = maxInd
+
+
+
+# # For development purpose #########################
+# with open("featureDetection.pickle", "rb") as file:
+#     vars = pickle.load(file)
+#     f = vars[0]
+#     params = vars[1]
+#     noise = vars[2]
+# ###################################################
+
+
+# Remove empty features
+f = [i for i in f if i is not None]
+
+##################
+# Filtering step #
+##################
+# A feature may contain multiple peaks from one scan
+# In this case, one with the largest intensity is chosen
+gMinRt, gMaxRt = 0, 0   # Global minimum and maximum RT over all features
+for i in range(len(f)):
+    if len(f[i]["num"]) != len(list(set(f[i]["num"]))):
+        temp = {}
+        for j in range(len(f[i]["num"])):
+            if f[i]["num"][j] in temp:
+                currIntensity = f[i]["intensity"][j]
+                if currIntensity > temp[f[i]["num"][j]]["intensity"]:
+                    temp[f[i]["num"][j]]["intensity"] = currIntensity
+                    temp[f[i]["num"][j]]["index"] = j
+            else:
+                temp[f[i]["num"][j]] = {}
+                temp[f[i]["num"][j]]["intensity"] = f[i]["intensity"][j]
+                temp[f[i]["num"][j]]["index"] = j
+        uInd = []
+        for key in sorted(temp.keys()):
+            uInd.append(temp[key]["index"])
+        f[i]["mz"] = [f[i]["mz"][u] for u in uInd]
+        f[i]["intensity"] = [f[i]["intensity"][u] for u in uInd]
+        f[i]["num"] = [f[i]["num"][u] for u in uInd]
+        f[i]["rt"] = [f[i]["rt"][u] for u in uInd]
+        f[i]["index"] = [f[i]["index"][u] for u in uInd]
+
+    if i == 0:
+        gMinRt = min(f[i]["rt"])
+        gMaxRt = max(f[i]["rt"])
+    else:
+        if min(f[i]["rt"]) < gMinRt:
+            gMinRt = min(f[i]["rt"])
+        if max(f[i]["rt"]) > gMaxRt:
+            gMaxRt = max(f[i]["rt"])
 
 ###################################
 # Organization of output features #
 ###################################
-for i in range(0, len(features)):
-    # Output format (i.e. columns)
-    # 1. mz: mean m/z of the feature
-    # 2. intensity: intensity of the feature (maximum intensity among peaks consist of the feature)
-    # 3. z: charge state of the feature
-    # 4. RT: mean RT of the feature
-    # 5. minRT
-    # 6. maxRT
-    # 7. MS1 (representative MS1 scan number of the feature)
-    # 8. minMS1 (minimum MS1 scan number, related with minRT)
-    # 9. maxMS1 (maximum MS1 scan number, related with maxRT)
-    # 10. SNratio (signal-to-noise ratio of the feature)
-    # 11. percentageTF (percentage of true feature -> similar to feature width)
+n = 0
+ms1ToFeatures = {}
+for i in range(len(f)):
+    # 1. mz: mean m/z of a feauture = weighted average of m/z and intensity
+    mz = np.sum(np.multiply(f[i]["mz"], f[i]["intensity"])) / np.sum(f[i]["intensity"])
 
-    mz = featuresCenterMzArray[i]
-    intensity = max(features[i]["intensity"])
-    ind = features[i]["intensity"].index(intensity)  # ind gives the index of the representative peak of the feature
-    # z = features[i]["charge"]
+    # 2. intensity: intensity of a feature (maximum intensity among the peaks consist of the feature)
+    intensity = max(f[i]["intensity"])
+
+    # 3. z: charge of the feature, set to 1 now, but modified later
     z = 1
-    RT = features[i]["rt"][ind]
-    minRT = min(features[i]["rt"])
-    maxRT = max(features[i]["rt"])
-    MS1 = features[i]["scanNumber"][ind]
-    minMS1 = min(features[i]["scanNumber"])
-    maxMS1 = max(features[i]["scanNumber"])
-    isotope = 0
+    isotope = 0 # Will be used later
 
-    if i == 0:
-        f = np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1, isotope)],
-                     dtype="f8, f8, i4, f8, f8, f8, i4, i4, i4, i4")
+    # 4. RT: RT of the representative peak (i.e. strongest peak) of a feature
+    ind = np.argmax(f[i]["intensity"])
+    rt = f[i]["rt"][ind]
+
+    # 5. minRT and maxRT
+    minRt = min(f[i]["rt"])
+    maxRt = max(f[i]["rt"])
+
+    # 6. MS1 scan number of the representative peak of a feature
+    ms1 = f[i]["num"][ind]
+
+    # 7. minMS1 and maxMS1
+    minMs1 = min(f[i]["num"])
+    maxMs1 = max(f[i]["num"])
+
+    # 8. SNratio (signal-to-noise ratio of the feature)
+    if ms1 in noise:
+        noiseLevel = noise[ms1]
     else:
-        f = np.append(f, np.array([(mz, intensity, z, RT, minRT, maxRT, MS1, minMS1, maxMS1, isotope)],
-                                  dtype=f.dtype))
-        for j in range(0, len(features[i]["scanNumber"])):
-            scanNum = features[i]["scanNumber"][j]
-            if scanNum not in ms1ToFeatures:
-                ms1ToFeatures[scanNum] = {"mz": [features[i]["mz"][j]],
-                                          "intensity": [features[i]["intensity"][j]]}
-            else:
-                ms1ToFeatures[scanNum]["mz"].append(features[i]["mz"][j])
-                ms1ToFeatures[scanNum]["intensity"].append(features[i]["intensity"][j])
+        noiseLevel = 500
+    snRatio = intensity / noiseLevel
+    featureIntensityThreshold = noiseLevel * float(params["signal_noise_ratio"])
 
-f.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "isotope")
+    if intensity >= featureIntensityThreshold:
+        # 9. Percentage of true feature
+        pctTF = (maxRt - minRt) / (gMaxRt - gMinRt) * 100
+        # Organize features in a structured numpy array form
+        if n == 0:
+            features = np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
+                                dtype="f8, f8, i4, f8, f8, f8, i4, i4, i4, f8, f8, i4")
+            n += 1
+        else:
+            features = np.append(features, np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
+                                                    dtype = features.dtype))
+        for j in range(len(f[i]["num"])):
+            num = f[i]["num"][j]
+            if num not in ms1ToFeatures:
+                 ms1ToFeatures[num] = {"mz": [f[i]["mz"][j]],
+                                       "intensity": [f[i]["intensity"][j]]}
+            else:
+                ms1ToFeatures[num]["mz"].append(f[i]["mz"][j])
+                ms1ToFeatures[num]["intensity"].append(f[i]["intensity"][j])
+    else:
+        continue
+
+features.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "SNratio", "PercentageTF", "isotope")
 
 ##########################
 # Decharging of features #
 ##########################
-f = np.sort(f, order="intensity")[::-1]  # Sort features in descending order of intensity
+features = np.sort(features, order = "intensity")[::-1]  # Sort features in descending order of intensity
 delC = 1.00335  # Mass difference between 13C and 12C
 tolPpm = 10  # Tolerance for decharging
 maxCharge = 5
-for i in range(f.shape[0]):
-    print (i)
-    mz = f["mz"][i]
-    intensity = f["intensity"][i]
+for i in range(features.shape[0]):
+    mz = features["mz"][i]
+    intensity = features["intensity"][i]
     lL = mz - mz * tolPpm / 1e6
     uL = delC + mz + mz * tolPpm / 1e6
-    scan = f["MS1"][i]
-    ind = np.where((f["MS1"] > (scan - 50)) & (f["MS1"] < (scan + 50)))[0]
+    scan = features["MS1"][i]
+    ind = np.where((features["MS1"] > (scan - 50)) & (features["MS1"] < (scan + 50)))[0]
     charge = 0
     for j in ind:
-        if j == i or f["isotope"][j] == 1:
+        if j == i or features["isotope"][j] == 1:
             continue
         else:
-            mz_j = f["mz"][j]
-            intensity_j = f["intensity"][j]
+            mz_j = features["mz"][j]
+            intensity_j = features["intensity"][j]
             # A presumable isotopic peak intensity should be greater than 20% of feature intensity (to prevent the inclusion of small/noisy peaks)
             # and smaller than 500% (i.e. inverse of 20%) of feature intensity (to prevent that a monoisotopic peak is merged for decharging of a small/noisy peak)
             if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (5 * intensity):
@@ -615,9 +814,13 @@ for i in range(f.shape[0]):
                     continue
                 else:
                     charge = diff
-                    f["isotope"][j] = 1
+                    features["isotope"][j] = 1
                     break
             else:
                 continue
-    f["z"][i] = charge
+    features["z"][i] = charge
+
+# Remove the features from isotopic peaks
+ind = np.where(features["isotope"] == 1)[0]
+features = np.delete(features, ind)
 '''
