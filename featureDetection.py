@@ -402,6 +402,8 @@ def detectFeatures(inputFile, paramFile):
         # 4. RT: RT of the representative peak (i.e. strongest peak) of a feature
         ind = np.argmax(f[i]["intensity"])
         rt = f[i]["rt"][ind]
+        if rt.unit_info == "minute":
+            rt = rt * 60    # Convert to the unit of second
 
         # 5. minRT and maxRT
         minRt = min(f[i]["rt"])
