@@ -3,6 +3,7 @@
 import sys, os, utils, numpy as np, pickle
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import IntVector, FloatVector
+from numpy.lib.recfunctions import merge_arrays, stack_arrays
 
 def calibrateFeatures(ref, comp, params):
     # ref and comp are "ndarray"s with the following column name
@@ -476,34 +477,38 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     partialInd = partialInd.astype(int)
 
     # Fully-aligned features
-    nCols = len(fArray[0][0])   # Number of columns in each feature array
-    full = np.zeros((len(fullInd), n * nCols))
-    for i in range(len(fullInd)):
-        for j in range(n):
-            colInd = indArray[fullInd[i], j]
-            if j == 0:
-                line = list(fArray[j][colInd])
-            else:
-                line.extend(list(fArray[j][colInd]))
-        full[i, :] = line
+    for i in range(n):
+        full_i = fArray[i][indArray[fullInd, i]]
+        full_i.dtype.names = [fNames[i] + "_" + c for c in full_i.dtype.names]
+        if i == 0:
+            full = full_i
+        else:
+            full = merge_arrays((full, full_i), asrecarray = True, flatten = True)
 
     # Partially-aligned features
-    partial = - np.ones((len(partialInd), n * nCols))
     for i in range(len(partialInd)):
         for j in range(n):
             colInd = indArray[partialInd[i], j]
             if j == 0:
                 if colInd == -1:
-                    line = [-1] * nCols
+                    # nullFeature = np.zeros((1,), dtype = fArray[j].dtype)
+                    nullFeature = np.zeros((1,))
+                    nullFeature[:] = np.nan
+                    line = nullFeature
                 else:
-                    line = list(fArray[j][colInd])
+                    line = fArray[j][colInd]
             else:
                 if colInd == -1:
-                    line.extend(([-1] * nCols))
+                    # nullFeature = np.zeros((1,), dtype = fArray[j].dtype)
+                    nullFeature = np.zeros((1,))
+                    nullFeature[:] = np.nan
+                    line = merge_arrays((line, nullFeature), asrecarray = True, flatten = True)
                 else:
-                    line.extend(list(fArray[j][colInd]))
-        partial[i, :] = line
-    partial[partial == -1] = np.nan
+                    line = merge_arrays((line, fArray[j][colInd]), asrecarray = True, flatten = True)
+        if i == 0:
+            partial = line
+        else:
+            partial = stack_arrays((partial, line), asrecarray = True, usemask = False)
 
     # Un-aligned features
     unaligned = []
@@ -532,21 +537,17 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     # Depending on the parameter, "pct_full_alignment", some partially-aligned features can be included in fully-aligned ones
     pctFullAlignment = float(params["pct_full_alignment"])
     if pctFullAlignment < 100:
-        colInd = [i for i, col in enumerate(header) if col.endswith('index')]
-        nRuns = np.sum(~np.isnan(partial[:, colInd]), axis = 1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
+        colNames = [col for col in partial.dtype.names if col.endswith('mz')]
+        nRuns = np.sum(np.array(partial[colNames].tolist()) > 0, axis = 1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
         rowInd = np.where(nRuns >= np.ceil(pctFullAlignment / 100 * n))[0]
 
         # Add some partially-aligned features to fully-aligned features
-        full = np.vstack((full, partial[rowInd, :]))
+        partial = stack_arrays((partial, line), asrecarray = True, usemask = False)
+        full = stack_arrays((full, partial[rowInd]), asrecarray = True, usemask = False)
         partial = np.delete(partial, rowInd, axis = 0)
         print ("    According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(rowInd))
     else:
         print ("    According to the parameter setting, no feature is added to the set of fully-aligned ones")
-
-    # Change ndarrays to masked/structured arrays
-    full = np.core.records.fromarrays(full.transpose(), names = tuple(header))
-    partial = np.core.records.fromarrays(partial.transpose(), names = tuple(header))
-    # unaligned is already a masked/structured array
 
     return full, partial, unaligned
 
@@ -626,111 +627,12 @@ def alignFeatures(fArray, featureFiles, paramFile):
         print("  Feature alignment")
         print("  =================")
         fullFeatures, partialFeatures, unalignedFeatures = findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, featureNames, params)
-
-
-
-###########################################
-################ Main part ################
-###########################################
-
-paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative.params"
-featureFiles = [r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.1.dev.feature",
-                r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_2.1.dev.feature",
-                r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_3.1.dev.feature"]
-
-nFiles = len(featureFiles)
-
-################################
-# Load parameters and features #
-################################
-params = utils.getParams(paramFile)
-# Features from .feature files are stored in fArray. For example,
-# featureFiles = [file1, file2, file3]
-# fArray[0] = features from file1 (which has column names like 'index', 'mz', etc.)
-# fArray[1] = features from file2
-# ...
-# The array of m/z values from the first feature file can be accessed by fArray[0]['mz']
-# The header of .feature file is used as column names of the array
-# Note that "/" (slash) is ignored when the file is loaded through "genfromtxt"
-# fArray = []
-# for i in range(nFiles):
-#     data = np.genfromtxt(featureFiles[i], delimiter = "\t", dtype = None, names = True)
-#     fArray.append(data)
-
-fArray = pickle.load(open("IROA_IS_NEG_Features.pickle", "rb"))
-
-if nFiles > 1: # Multiple feature files -> alignment is required
-    print ("  Feature calibration")
-    print ("  ===================")
-
-    ###################################
-    # Selection of a reference sample #
-    ###################################
-    if params["reference_feature"] == "0":
-        # A sample with the largest median of top 100 intensities is set to a reference run
-        refNo = 0
-        refIntensity = 0
-        for i in range(nFiles):
-            tmpIntensity = np.median(sorted(fArray[i]["intensity"], reverse = True)[0: 100])
-            if tmpIntensity >= refIntensity:
-                refNo = i
-                refIntensity = tmpIntensity
+        print()
+        return fullFeatures, partialFeatures, unalignedFeatures
     else:
-        try:
-            refNo = featureFiles.index(params["reference_feature"])
-        except:
-            sys.exit("  'reference_feature' parameter should be correctly specified")
-    print ("  %s is chosen as the reference run" % os.path.basename(featureFiles[refNo]))
+        print("  Since a single feature is used, the feature alignment is skipped")
+        fullFeatures = np.copy(fArray[0])  # Masked array to 2D numpy array
+        print()
+        return fullFeatures, None, None
 
-    ############################################################
-    # Calibration of features against those in a reference run #
-    ############################################################
-    rtSdArray, mzSdArray = [], []
-    featureNames = []
-    for i in range(nFiles):
-        featureName = os.path.basename(featureFiles[i])
-        featureNames.append(featureName)
-        if i != refNo:
-            print ("  " + featureName + " is being aligned against the reference run (it may take a while)")
-            fArray[i], rtSd, mzSd = calibrateFeatures(fArray[refNo], fArray[i], params)
-            rtSdArray.append(rtSd)
-            mzSdArray.append(mzSd)
-        else:
-            rtSdArray.append("NA")
-            mzSdArray.append("NA")
 
-    print ("  Calibration summary")
-    print ("  After calibration, RT- and m/z-shifts of each run (against the reference run) are centered to zero")
-    print ("  Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows,")
-    print ("  Filename\t\t\t#features\tSD of RT-shifts [second]\tSD of m/z-shifts [ppm]")
-    for i in range(nFiles):
-        nFeatures = str(fArray[i].shape[0])
-        if i != refNo:
-            meanRtSd = "%.6f" % np.mean(rtSdArray[i])
-            meanMzSd = "%.6f" % np.mean(mzSdArray[i])
-        else:
-            meanRtSd = "NA"
-            meanMzSd = "NA"
-        print ("  " + featureNames[i] + "\t\t\t" + nFeatures + "\t" + meanRtSd + "\t" + meanMzSd)
-    print ()
-
-    #################################################################
-    # Identification of fully-aligned features for further analysis #
-    #################################################################
-    print ("  Feature alignment")
-    print ("  =================")
-    # fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(fArray, featureNames, paramFile)
-    fullFeatures, partialFeatures, unalignedFeatures = findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray,
-                                                                           featureNames, params)
-    # 1. fullFeatures and partialFeatures are ndarrays
-    # For example, there are 4 feature files and each feature has 13 columns (i.e. index, RT, minRT, etc.)
-    # then, fullFeature and partialFeature have 4 x 13 (= 42) columns
-    # 2. unalignedFeatures is a masked ndarray
-    # As for the above example, len(unalignedFeatures) = 4 and unalignedFeatures[i] = a masked array with 13 columns
-
-else:
-    print ("  Since a single feature is used, the feature alignment is skipped")
-    fullFeatures = np.copy(fArray[0])    # Masked array to 2D numpy array
-
-# To-do : 1. quantify features
-#         2. write to file(s)

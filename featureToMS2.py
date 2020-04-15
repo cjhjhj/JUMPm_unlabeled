@@ -92,183 +92,118 @@ def interConsolidation(specs, tol):
     return spec
 
 
-# For development purpose #################################################################
-with open("featureToMS2_3.pickle", "rb") as f:
-    vars = pickle.load(f)
+def ms2ForFeatures(full, mzxmlFiles, paramFile):
+    print("  Identification of MS2 spectra for the features")
 
-featureFiles = vars[0]
-full = vars[1]
-full.dtype.names = [name.replace("ScanNumber", "") if name.endswith("ScanNumber") else name for name in full.dtype.names]
-params = vars[2]
-featureToScan = vars[3]
-featureToSpec = vars[4]
+    ######################################
+    # Load parameters and initialization #
+    ######################################
+    ppiThreshold = "max"  # Hard-coded
+    params = utils.getParams(paramFile)
+    pctTfThreshold = float(params["max_percentage_RT_range"])
+    tolIsolation = float(params["isolation_window"])
+    tolPrecursor = float(params["tol_precursor"])
+    tolIntraMS2Consolidation = float(params["tol_intra_ms2_consolidation"])
+    tolInterMS2Consolidation = float(params["tol_inter_ms2_consolidation"])
+    nFeatures = len(full)
+    nFiles = len(mzxmlFiles)
+    featureToScan = np.empty((nFeatures, nFiles), dtype = object)
+    featureToSpec = np.empty((nFeatures, nFiles), dtype = object)
 
-mzXMLFiles = [r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML",
-              r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_2.mzXML",
-              r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_3.mzXML"]
+    m = -1  # Index for input files
+    for file in mzxmlFiles:
+        m += 1
+        reader = mzxml.MzXML(file)
+        fileBasename, _ = os.path.splitext(os.path.basename(file))
+        colNames = [item for item in full.dtype.names if re.search(fileBasename, item)]
+        subset = full[colNames]
+        subset.dtype.names = [s.split("_")[-1] for s in subset.dtype.names]
+        ms2Dict = {}
+        minScan, maxScan = int(min(subset["minMS1"])), int(max(subset["maxMS1"]))
+        progress = utils.progressBar(maxScan - minScan + 1)
+        print("  %s is being processed" % os.path.basename(file))
+        for i in range(minScan, maxScan + 1):
+            progress.increment()
+            spec = reader[str(i)]
+            msLevel = spec["msLevel"]
+            if msLevel == 1:
+                surveyNum = i
+            elif msLevel == 2:
+                # Find MS2 scans which satisfy the following conditions
+                precMz = spec["precursorMz"][0]["precursorMz"]
+                survey = reader[str(surveyNum)]
+                fInd = np.where((surveyNum >= subset["minMS1"]) &
+                                (surveyNum <= subset["maxMS1"]) &
+                                (subset["mz"] >= (precMz - tolIsolation)) &
+                                (subset["mz"] <= (precMz + tolIsolation)) &
+                                (subset["PercentageTF"] <= pctTfThreshold))[0]
+                if len(fInd) > 0:
+                    ppi = []
+                    for i in range(len(fInd)):
+                        mz = subset["mz"][fInd[i]]
+                        lL = mz - mz * tolPrecursor / 1e6
+                        uL = mz + mz * tolPrecursor / 1e6
+                        ind = np.where((survey["m/z array"] >= lL) & (survey["m/z array"] <= uL))[0]
+                        if len(ind) > 0:
+                            ppi.append(np.max(survey["intensity array"][ind]))
+                        else:
+                            ppi.append(0)
 
-# Check the length of featureFiles and mzXMLFiles
-if len(featureFiles) != len(mzXMLFiles):
-    sys.exit("Input feature files and mzXML files do not match")
-nFiles = len(featureFiles)
+                    if sum(ppi) == 0:
+                        continue
+                    ppi = ppi / np.sum(ppi) * 100  # Convert intensities to percentage values
+                    if ppiThreshold == "max":
+                        fInd = np.array([fInd[np.argmax(ppi)]])
+                    else:
+                        # ppiThreshold should be a numeric value
+                        fInd = fInd[np.where(ppi > ppiThreshold)]
+                    if len(fInd) == 0:  # Last check of candidate feature indexes
+                        continue
+                    else:
+                        # Add this MS2 scan information to ms2Dict
+                        ms2Dict[spec["num"]] = {}
+                        ms2Dict[spec["num"]]["mz"] = spec["m/z array"]
+                        ms2Dict[spec["num"]]["intensity"] = spec["intensity array"]
+                        # Mapping between features and MS2 scan numbers
+                        for i in range(len(fInd)):
+                            if featureToScan[fInd[i], m] is None:
+                                featureToScan[fInd[i], m] = spec["num"]
+                            else:
+                                featureToScan[fInd[i], m] += ";" + spec["num"]
 
+        print("  Merging MS2 spectra within a run for each feature")
+        progress = utils.progressBar(nFeatures)
+        for i in range(nFeatures):
+            progress.increment()
+            if featureToScan[i, m] is not None:
+                spec = intraConsolidation(ms2Dict, featureToScan[i, m], tolIntraMS2Consolidation)
+                featureToSpec[i, m] = spec
+        print()
 
-# readers = []
-# for i in range(nFiles):
-#     reader = mzxml.read(mzXMLFiles[i])
-#     readers.append(reader)
+    print("  Merging MS2 spectra between runs for each feature")
+    specArray = np.array([])
+    progress = utils.progressBar(nFeatures)
+    for i in range(nFeatures):
+        progress.increment()
+        if np.sum(featureToSpec[i] == None) == nFiles:
+            specArray = np.append(specArray, None)
+        else:
+            # Heuristic charge determination across runs
+            # 1. Charge state other than 0
+            # 2. More frequent charge state
+            # 3. If the same frequency, choose the lower one
+            colNames = [col for col in full.dtype.names if col.endswith("_z")]
+            charges = [c for c in full[colNames][i] if c > 0]
+            if len(charges) == 0:
+                charge = 1
+            else:
+                charge = max(set(charges), key = charges.count)
 
-############################################################################################
+            spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
+            spec["charge"] = charge
+            specArray = np.append(specArray, spec)
 
-
-
-
-
-######################################
-# Load parameters and initialization #
-######################################
-ppiThreshold = "max"    # Hard-coded
-pctTfThreshold = 50 # Hard-coded
-tolIsolation = float(params["isolation_window"])
-tolPrecursor = float(params["tol_precursor"])
-tolIntraMS2Consolidation = float(params["tol_intra_ms2_consolidation"])
-tolInterMS2Consolidation = float(params["tol_inter_ms2_consolidation"])
-
-df = pd.DataFrame(data = full)
-nFeatures = df.shape[0]
-# featureToScan = np.empty((nFeatures, nFiles), dtype = object)
-# featureToSpec = np.empty((nFeatures, nFiles), dtype = object)
-#
-# ########################################################
-# # Find MS2 scans responsible for features within a run #
-# ########################################################
-# m = -1  # Index for input (mzXML) files
-# for file in mzXMLFiles:
-#
-#
-#     # File handling may need to be revised according to the format of wrapper ######
-#     m += 1
-#
-#
-#     print ("  Reading %s" % os.path.basename(file))
-#     reader = mzxml.MzXML(file)
-#     nScans = len(reader)
-#
-#     fileBasename, _ = os.path.splitext(os.path.basename(file))
-#     colInd = [i for i, item in enumerate(df.columns) if re.search(fileBasename, item)]
-#     subDf = df.iloc[:, colInd]
-#     subDf.columns = [s.split("_")[-1] for s in subDf.columns]
-#     ms2Dict = {}
-#     progress = utils.progressBar(nScans)
-#     print("  Finding MS2 spectra of %s responsible for features" % os.path.basename(file))
-#     for i in range(nScans):
-#         progress.increment()
-#         if i < min(subDf["minMS1"]) or i > max(subDf["maxMS1"]):
-#             continue
-#
-#
-#             # In fact, when i > max(subDf["maxMS1"]), we can use "break",i.e. no need to iterate
-#             # However, progressBar may stop
-#
-#
-#         else:
-#             spec = reader[str(i)]
-#             msLevel = int(spec["msLevel"])
-#             if msLevel == 1:
-#                survey = spec
-#             elif msLevel == 2:
-#                 # Find MS2 scans which satisfy
-#                 # 1. Their precursor m/z values are within feature's m/z +/- isolation_window
-#                 # 2. Their presumable survey scans are between feature's min. and max. MS1 scan numbers
-#                 # 3. Feature width should be less than a threshold
-#                 precMz = float(spec["precursorMz"][0]["precursorMz"])
-#                 fInd = np.where((subDf["minMS1"] < int(survey["num"])) &
-#                                 (subDf["maxMS1"] > int(survey["num"])) &
-#                                 (subDf["mz"] >= (precMz - tolIsolation)) &
-#                                 (subDf["mz"] <= (precMz + tolIsolation)) &
-#                                 (subDf["PercentageTF"] < pctTfThreshold))[0]
-#                 if len(fInd) == 0:
-#                     continue
-#                 else:
-#                     # Check the intensities of candidate features at the very preceding MS1 scan
-#                     # For example, let's assume that candidate features are as follows for a MS2 scan #141
-#                     # index  mz        z  MS1  minMS1 maxMS1 Intensity
-#                     # 3      218.1498  0  136  1      951    37544
-#                     # 20     220.0705  0  126  1      1446   91709
-#                     # 40     218.8597  6  18   1      764    91745
-#                     # 65     220.1052  0  1    1      1248   355843
-#                     # Also, suppose that the very preceding MS1 scan (i.e. survey scan) is scan#140
-#                     # Then, we need to check the intensities of those candidate features at scan#140
-#                     # example) For the 1st feature whose representative m/z = 218.1498,
-#                     #          1. Get MS1 spectrum of scan#140
-#                     #          2. Open a m/z window with a tolerance; [218.1498 - 10ppm, 218.1498 + 10ppm]
-#                     #          3. Look for the MS1 peak with the highest intensity within the window, and record the intensity
-#                     #          4. If the intensity is the highest among candidate features, choose it for the MS2 scan
-#                     #          5. Otherwise, check the next candidate feature
-#                     #          6. Instead of choosing one feature with the highest intensity,
-#                     #             PPI can be used and multiple features may be chosen for each MS2
-#                     ppi = []
-#                     for i in range(len(fInd)):
-#                         mz = subDf["mz"][fInd[i]]
-#                         lL = mz - mz * tolPrecursor / 1e6
-#                         uL = mz + mz * tolPrecursor / 1e6
-#                         ind = np.where((survey["m/z array"] >= lL) & (survey["m/z array"] <= uL))[0]
-#                         if len(ind) > 0:
-#                             ppi.append(np.max(survey["intensity array"][ind]))
-#                         else:
-#                             ppi.append(0)
-#
-#                     if sum(ppi) == 0:
-#                         continue
-#                     ppi = ppi / np.sum(ppi) * 100  # Convert intensities to percentage values
-#                     if ppiThreshold == "max":
-#                         fInd = np.array([fInd[np.argmax(ppi)]])
-#                     else:
-#                         # ppiThreshold should be a numeric value
-#                         fInd = fInd[np.where(ppi > ppiThreshold)]
-#                     if len(fInd) == 0:  # Last check of candidate feature indexes
-#                         continue
-#                     else:
-#                         # Add this MS2 scan information to ms2Dict
-#                         ms2Dict[spec["num"]] = {}
-#                         ms2Dict[spec["num"]]["mz"] = spec["m/z array"]
-#                         ms2Dict[spec["num"]]["intensity"] = spec["intensity array"]
-#                         # Mapping between features and MS2 scan numbers
-#                         for i in range(len(fInd)):
-#                             if featureToScan[fInd[i], m] is None:
-#                                 featureToScan[fInd[i], m] = spec["num"]
-#                             else:
-#                                 featureToScan[fInd[i], m] += ";" + spec["num"]
-#
-#     ##############################################################
-#     # Consolidation of MS2 spectra for each feature within a run #
-#     ##############################################################
-#     print("  Merging MS2 spectra within each feature")
-#     progress = utils.progressBar(nFeatures)
-#     for i in range(nFeatures):
-#         progress.increment()
-#         if featureToScan[i, m] is None:
-#             continue
-#         else:
-#             spec = intraConsolidation(ms2Dict, featureToScan[i, m], tolIntraMS2Consolidation)
-#             featureToSpec[i, m] = spec
-
-#############################################
-# Consolidation of MS2 spectra between runs #
-#############################################
-print ("  Merging MS2 spectra between runs for each feature")
-ms2Array = []
-progress = utils.progressBar(nFeatures)
-for i in range(nFeatures):
-    progress.increment()
-    if sum(featureToSpec[i, :] == None) == nFiles:
-        ms2Array = np.append(ms2Array, None)
-    else:
-        spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
-        ms2Array = np.append(ms2Array, np.array(spec))
-print ()
-
-
-
-
-
+    # "specArray" is the list of (consolidated) MS2 spectra
+    # specArray[i] is the MS2 spectrum corresponding to the i-th feature
+    # If there's no MS2 spectrum, then specArray[i] is None
+    return specArray
