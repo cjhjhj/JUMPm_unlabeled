@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
-import sys, os, utils, numpy as np, pickle
+import sys, os, utils, numpy as np, pandas as pd, pickle
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import IntVector, FloatVector
 from numpy.lib.recfunctions import merge_arrays, stack_arrays
+
 
 def calibrateFeatures(ref, comp, params):
     # ref and comp are "ndarray"s with the following column name
@@ -22,55 +23,55 @@ def calibrateFeatures(ref, comp, params):
 
     initMzTol = int(params["tol_initial"])
     sdWidth = int(params["sd_width"])
-    ref = np.sort(ref, order = "intensity")[::-1]   # Sort features in descending order of intensity
-    comp = np.sort(comp, order = "intensity")[::-1]
+    ref = np.sort(ref, order="intensity")[::-1]  # Sort features in descending order of intensity
+    comp = np.sort(comp, order="intensity")[::-1]
 
     # Calibration of RT and m/z globally
-    print ("  Global calibration of features is being performed")
+    print("  Global calibration of features is being performed")
     rtShifts, mzShifts = globalCalibration(ref, comp, initMzTol)
-    print ("    Based on the matched features within %d ppm" % initMzTol)
-    print ("    The global RT-shift is %.4f second" % np.median(rtShifts))
-    print ("    The global m/z-shift is %.4f ppm" % np.median(mzShifts))
-    print ("    RT and m/z of the compared features are calibrated according to the above information")
+    print("    Based on the matched features within %d ppm" % initMzTol)
+    print("    The global RT-shift is %.4f second" % np.median(rtShifts))
+    print("    The global m/z-shift is %.4f ppm" % np.median(mzShifts))
+    print("    RT and m/z of the compared features are calibrated according to the above information")
     comp["RT"] = comp["RT"] - np.median(rtShifts)
     comp["mz"] = comp["mz"] / (1 + np.median(mzShifts) / 1e6)
 
     # Calibration of RT and m/z locally using LOESS (stepwise)
     rLoess = loess()
     rPredict = ro.r("predict")
-    print ("  Local calibration of features is being performed (through LOESS modeling)")
-    print ("    RT- and m/z-tolerances will be dynamically estimated over RT- and m/z-range as follows,")
-    print ("    RT- and m/z-tolerance = %d x dynamically estimated SD of RT- and m/z-shifts" % sdWidth)
-    print ("    LOESS modeling may take some time. Please be patient ...")
-    rtSd = np.maximum(1e-3, np.std(rtShifts, ddof = 1))
-    mzSd = np.maximum(1e-3, np.std(mzShifts, ddof = 1))
+    print("  Local calibration of features is being performed (through LOESS modeling)")
+    print("    RT- and m/z-tolerances will be dynamically estimated over RT- and m/z-range as follows,")
+    print("    RT- and m/z-tolerance = %d x dynamically estimated SD of RT- and m/z-shifts" % sdWidth)
+    print("    LOESS modeling may take some time. Please be patient ...")
+    rtSd = np.maximum(1e-3, np.std(rtShifts, ddof=1))
+    mzSd = np.maximum(1e-3, np.std(mzShifts, ddof=1))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "RT")
-    print ("    The 1st round of RT-calibration is done")
-    print ("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
-    print ("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
+    print("    The 1st round of RT-calibration is done")
+    print("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
+    print("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "RT")
-    print ("    The 2nd round of RT-calibration is done")
-    print ("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
-    print ("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
+    print("    The 2nd round of RT-calibration is done")
+    print("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
+    print("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "mz")
-    print ("    The 1st round of m/z-calibration is done")
-    print ("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
-    print ("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
+    print("    The 1st round of m/z-calibration is done")
+    print("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
+    print("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "mz")
-    print ("    The 2nd round of m/z-calibration is done")
-    print ("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
-    print ("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
-    print ()
-    return comp, rtSd, mzSd # "comp" is the set of calibrated features
+    print("    The 2nd round of m/z-calibration is done")
+    print("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
+    print("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
+    print()
+    return comp, rtSd, mzSd  # "comp" is the set of calibrated features
 
 
-def globalCalibration(ref, comp, mzTol = 20):
-    nPeaks = round(0.05 * ref.shape[0])    # Number of peaks to be considered for global calibration
-    rtShifts = []   # Array for RT-shifts between reference and compared runs
-    mzShifts = []   # Array for mz-shifts (ppm)
+def globalCalibration(ref, comp, mzTol=20):
+    nPeaks = round(0.05 * ref.shape[0])  # Number of peaks to be considered for global calibration
+    rtShifts = []  # Array for RT-shifts between reference and compared runs
+    mzShifts = []  # Array for mz-shifts (ppm)
     i, j = 0, 1
     while j <= nPeaks:
-        z = ref["z"][i] # From the 1st feature of reference run (i.e. strongest feature)
+        z = ref["z"][i]  # From the 1st feature of reference run (i.e. strongest feature)
         mz = ref["mz"][i]
         lL = mz - mz * mzTol / 1e6
         uL = mz + mz * mzTol / 1e6
@@ -93,10 +94,10 @@ def globalCalibration(ref, comp, mzTol = 20):
     # For more robust calculation, top and bottom 10% values are trimmed
     rtShifts = np.array(rtShifts)
     rtShifts = rtShifts[(rtShifts >= np.percentile(rtShifts, 10)) &
-                     (rtShifts <= np.percentile(rtShifts, 90))]
+                        (rtShifts <= np.percentile(rtShifts, 90))]
     mzShifts = np.array(mzShifts)
     mzShifts = mzShifts[(mzShifts >= np.percentile(mzShifts, 10)) &
-                     (mzShifts <= np.percentile(mzShifts, 90))]
+                        (mzShifts <= np.percentile(mzShifts, 90))]
     return rtShifts, mzShifts
 
 
@@ -191,19 +192,19 @@ def localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, type):
     refMz = ref["mz"][refInd]
     compMz = comp["mz"][compInd]
 
-    if type == "RT":    # RT-calibration
+    if type == "RT":  # RT-calibration
         if (refRt == compRt).all():
             rtShifts = 1e-6 * np.random.normal(len(refRt))
         else:
             rtShifts = compRt - refRt
         mod = rLoess(FloatVector(compRt), FloatVector(rtShifts))
-        compRt = compRt - np.array(mod.rx2("fitted"))   # Calibrated RT based on the model
+        compRt = compRt - np.array(mod.rx2("fitted"))  # Calibrated RT based on the model
 
         # Calculate a new (dynamic) RT-tolerance
         if (refRt == compRt).all():
             rtShifts = 1e-6 * np.random.normal(len(refRt))
         else:
-            rtShifts = compRt - refRt   # Calibrated RT-shifts
+            rtShifts = compRt - refRt  # Calibrated RT-shifts
         ind = np.where((rtShifts >= np.percentile(rtShifts, 10)) &
                        (rtShifts <= np.percentile(rtShifts, 90)))[0]
         modRtSd = rLoess(FloatVector(compRt[ind]), FloatVector(rtShifts[ind] ** 2))
@@ -227,13 +228,13 @@ def localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, type):
         else:
             mzShifts = (compMz - refMz) / refMz * 1e6
         mod = rLoess(FloatVector(compMz), FloatVector(mzShifts), 1, "aicc", "gaussian")
-        compMz = compMz * (1 + np.array(mod.rx2("fitted")) / 1e6)   # Calibrated m/z basd on the model
+        compMz = compMz * (1 + np.array(mod.rx2("fitted")) / 1e6)  # Calibrated m/z basd on the model
 
         # Calculate a new (dynamic) m/z-tolerance
         if (refMz == compMz).all():
             mzShifts = 1e-6 * np.random.normal(len(refMz))
         else:
-            mzShifts = (compMz - refMz) / refMz * 1e6   # Calibrated m/z-shifts
+            mzShifts = (compMz - refMz) / refMz * 1e6  # Calibrated m/z-shifts
         modMzSd = rLoess(FloatVector(compMz), FloatVector(mzShifts ** 2), 1, "aicc", "gaussian")
         mzSd = np.sqrt(np.maximum(0, rPredict(modMzSd, FloatVector(ref["mz"]))))
 
@@ -254,8 +255,8 @@ def localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, type):
 
 
 def findComparableFeatures(ref, comp, rtSd, mzSd, params):
-    ref = np.sort(ref, order = "intensity")[::-1]   # Sort features in descending order of intensity
-    comp = np.sort(comp, order = "intensity")[::-1]
+    ref = np.sort(ref, order="intensity")[::-1]  # Sort features in descending order of intensity
+    comp = np.sort(comp, order="intensity")[::-1]
 
     n = ref.shape[0]
     if not isinstance(rtSd, (list, np.ndarray)):
@@ -270,12 +271,12 @@ def findComparableFeatures(ref, comp, rtSd, mzSd, params):
 
     # Look for matching features between "ref" and "comp"
     refInd, compInd = [], []
-    for i in range(n):   # For each feature in "ref", look for a matching one in "comp"
+    for i in range(n):  # For each feature in "ref", look for a matching one in "comp"
         z = ref["z"][i]
         mz = ref["mz"][i]
         rt = ref["RT"][i]
         rtDev = comp["RT"] - rt
-        mzDev = (comp["mz"] - mz) / mz * 1e6    # Unit of PPM
+        mzDev = (comp["mz"] - mz) / mz * 1e6  # Unit of PPM
         if z == 0:  # Undetermined charge
             # For the feature with undetermined charge,
             # look for a matching one without considering charge state
@@ -316,7 +317,7 @@ def findComparableFeatures(ref, comp, rtSd, mzSd, params):
 def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, rtTol, mzTolUnit, mzTol):
     nRescue = 0
     nUnaligned = comp.shape[0] - len(compInd)
-    print ("    There are %d unaligned features" % nUnaligned)
+    print("    There are %d unaligned features" % nUnaligned)
 
     # 1. Reduce variables to ones of unaligned features
     n = ref.shape[0]
@@ -337,28 +338,28 @@ def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, 
     ratioAligned = np.log2(ref["intensity"][refInd]) - np.log2(comp["intensity"][compInd])
     lRatio = np.percentile(ratioAligned, (100 - ratioPct) / 2)
     uRatio = np.percentile(ratioAligned, 100 - (100 - ratioPct) / 2)
-    print ("    - Intensity higher than %d (median intensity of aligned features)" % intLevel)
-    print ("    - Ratio between reference and compared runs within %d %%" % ratioPct)
+    print("    - Intensity higher than %d (median intensity of aligned features)" % intLevel)
+    print("    - Ratio between reference and compared runs within %d %%" % ratioPct)
     if rtTolUnit == "1":
-        print ("    - RT-shifts within %s x SD of estimated RT-shifts from aligned features" % rtTol)
+        print("    - RT-shifts within %s x SD of estimated RT-shifts from aligned features" % rtTol)
         rtTol = float(rtTol) * rtSd
     elif rtTolUnit == "2":
-        print ("    - RT-shifts less than %s seconds" % rtTol)
+        print("    - RT-shifts less than %s seconds" % rtTol)
         rtTol = np.repeat(float(rtTol), len(uRefInd))
     else:
-        print ("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
-        print ("    Due to incorrect parameter settings, the rescue step is skipped")
+        print("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
+        print("    Due to incorrect parameter settings, the rescue step is skipped")
         return refInd, compInd
 
     if mzTolUnit == "1":
-        print ("    - m/z-shifts within %s x SD of estimated m/z-shifts from aligned features" % mzTol)
+        print("    - m/z-shifts within %s x SD of estimated m/z-shifts from aligned features" % mzTol)
         mzTol = float(mzTol) * mzSd
     elif mzTolUnit == "2":
-        print ("    - m/z-shifts less than %s seconds" % mzTol)
+        print("    - m/z-shifts less than %s seconds" % mzTol)
         mzTol = np.repeat(float(mzTol), len(uRefInd))
     else:
-        print ("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
-        print ("    Due to incorrect parameter settings, the rescue step is skipped")
+        print("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
+        print("    Due to incorrect parameter settings, the rescue step is skipped")
         return refInd, compInd
 
     # 3. Apply the criteria to unaligned features
@@ -389,13 +390,13 @@ def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, 
                         compInd.append(uCompInd[ind2])
                         nRescue += 1
 
-    print ("    Through the rescue procedure %d features are additionally aligned" % nRescue)
+    print("    Through the rescue procedure %d features are additionally aligned" % nRescue)
     return (refInd, compInd)
 
 
 def matchFeatures(ref, comp, rtSd, mzSd, params):
-    ref = np.sort(ref, order = "intensity")[::-1]   # Sort features in descending order of intensity
-    comp = np.sort(comp, order = "intensity")[::-1]
+    ref = np.sort(ref, order="intensity")[::-1]  # Sort features in descending order of intensity
+    comp = np.sort(comp, order="intensity")[::-1]
 
     n = ref.shape[0]
     if not isinstance(rtSd, (list, np.ndarray)):
@@ -410,12 +411,12 @@ def matchFeatures(ref, comp, rtSd, mzSd, params):
 
     # Look for matching features between "ref" and "comp"
     refInd, compInd = [], []
-    for i in range(n):   # For each feature in "ref", look for a matching one in "comp"
+    for i in range(n):  # For each feature in "ref", look for a matching one in "comp"
         z = ref["z"][i]
         mz = ref["mz"][i]
         rt = ref["RT"][i]
         rtDev = comp["RT"] - rt
-        mzDev = (comp["mz"] - mz) / mz * 1e6    # Unit of PPM
+        mzDev = (comp["mz"] - mz) / mz * 1e6  # Unit of PPM
         rowInd = np.where((abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]))[0]
 
         if len(rowInd) > 0:
@@ -443,14 +444,14 @@ def matchFeatures(ref, comp, rtSd, mzSd, params):
 
 def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     n = len(fNames)
-    indArray = - np.ones((fArray[refNo].shape[0], n), dtype = int)
+    indArray = - np.ones((fArray[refNo].shape[0], n), dtype=int)
     indArray[:, refNo] = range(fArray[refNo].shape[0])
     for i in range(n):
         if i != refNo:
             refName = os.path.basename(fNames[refNo])
             compName = os.path.basename(fNames[i])
-            print ("  " + refName + ": %d features (reference run)" % fArray[refNo].shape[0])
-            print ("  " + compName + ": %d features (compared run)" % fArray[i].shape[0])
+            print("  " + refName + ": %d features (reference run)" % fArray[refNo].shape[0])
+            print("  " + compName + ": %d features (compared run)" % fArray[i].shape[0])
             refInd, compInd = matchFeatures(fArray[refNo], fArray[i], rtSdArray[i], mzSdArray[i], params)
 
             # Alignment indication
@@ -460,16 +461,15 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             # indArray[i, j] = -1 means that there's no feature matched to i-th reference feature in j-th run
             rowInd = np.nonzero(np.in1d(indArray[:, refNo], refInd))[0]
             indArray[rowInd, i] = compInd
-            print ("    %d features are aligned between runs" % len(rowInd))
-    print ()
+            print("    %d features are aligned between runs" % len(rowInd))
+    print()
 
     # Indexes of fully- and partially-aligned features
     fullInd = range(indArray.shape[0])
     partialInd = []
     colNames = list(fArray[0].dtype.names)
-    header = []
     for i in range(n):
-        header.extend([fNames[i] + "_" + c for c in colNames])
+        fArray[i].dtype.names = [fNames[i] + "_" + c for c in colNames]
         if i != refNo:
             fullInd = np.intersect1d(fullInd, np.where(indArray[:, i] >= 0)[0])
             partialInd = np.union1d(partialInd, np.where(indArray[:, i] >= 0)[0])
@@ -479,11 +479,11 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     # Fully-aligned features
     for i in range(n):
         full_i = fArray[i][indArray[fullInd, i]]
-        full_i.dtype.names = [fNames[i] + "_" + c for c in full_i.dtype.names]
+        # full_i.dtype.names = [fNames[i] + "_" + c for c in full_i.dtype.names]
         if i == 0:
             full = full_i
         else:
-            full = merge_arrays((full, full_i), asrecarray = True, flatten = True)
+            full = merge_arrays((full, full_i), asrecarray=True, flatten=True)
 
     # Partially-aligned features
     for i in range(len(partialInd)):
@@ -491,40 +491,38 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             colInd = indArray[partialInd[i], j]
             if j == 0:
                 if colInd == -1:
-                    # nullFeature = np.zeros((1,), dtype = fArray[j].dtype)
-                    nullFeature = np.zeros((1,))
+                    nullFeature = np.zeros((1,), dtype=fArray[j].dtype)
                     nullFeature[:] = np.nan
                     line = nullFeature
                 else:
                     line = fArray[j][colInd]
             else:
                 if colInd == -1:
-                    # nullFeature = np.zeros((1,), dtype = fArray[j].dtype)
-                    nullFeature = np.zeros((1,))
+                    nullFeature = np.zeros((1,), dtype=fArray[j].dtype)
                     nullFeature[:] = np.nan
-                    line = merge_arrays((line, nullFeature), asrecarray = True, flatten = True)
+                    line = merge_arrays((line, nullFeature), asrecarray=True, flatten=True)
                 else:
-                    line = merge_arrays((line, fArray[j][colInd]), asrecarray = True, flatten = True)
+                    line = merge_arrays((line, fArray[j][colInd]), asrecarray=True, flatten=True)
         if i == 0:
             partial = line
         else:
-            partial = stack_arrays((partial, line), asrecarray = True, usemask = False)
+            partial = stack_arrays((partial, line), asrecarray=True, usemask=False)
 
     # Un-aligned features
     unaligned = []
     for i in range(n):
         if i == refNo:
             rowInd = np.setdiff1d(range(fArray[refNo].shape[0]), np.union1d(fullInd, partialInd))
-            unaligned.append(fArray[refNo][rowInd, ])
+            unaligned.append(fArray[refNo][rowInd,])
         else:
             rowInd = np.setdiff1d(range(fArray[i].shape[0]), indArray[:, i])
-            unaligned.append(fArray[i][rowInd, ])
+            unaligned.append(fArray[i][rowInd,])
 
     # Alignment summary
-    print ("  Alignment/match summary")
-    print ("  =======================")
-    print ("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows")
-    print ("    Filename\t\tfully-aligned\tpartially-aligned\tun-aligned")
+    print("  Alignment/match summary")
+    print("  =======================")
+    print("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows")
+    print("    Filename\t\tfully-aligned\tpartially-aligned\tun-aligned")
     nFull = len(fullInd)
     for i in range(n):
         if i == refNo:
@@ -532,28 +530,35 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
         else:
             nPartial = np.sum(indArray[:, i] >= 0) - len(fullInd)
         nUn = unaligned[i].shape[0]
-        print ("    %s\t\t%d\t%d\t%d" % (fNames[i], nFull, nPartial, nUn))
+        print("    %s\t\t%d\t%d\t%d" % (fNames[i], nFull, nPartial, nUn))
 
     # Depending on the parameter, "pct_full_alignment", some partially-aligned features can be included in fully-aligned ones
     pctFullAlignment = float(params["pct_full_alignment"])
     if pctFullAlignment < 100:
         colNames = [col for col in partial.dtype.names if col.endswith('mz')]
-        nRuns = np.sum(np.array(partial[colNames].tolist()) > 0, axis = 1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
+        nRuns = np.sum(np.array(partial[colNames].tolist()) > 0,
+                       axis=1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
         rowInd = np.where(nRuns >= np.ceil(pctFullAlignment / 100 * n))[0]
 
         # Add some partially-aligned features to fully-aligned features
-        partial = stack_arrays((partial, line), asrecarray = True, usemask = False)
-        full = stack_arrays((full, partial[rowInd]), asrecarray = True, usemask = False)
-        partial = np.delete(partial, rowInd, axis = 0)
-        print ("    According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(rowInd))
+        partial = stack_arrays((partial, line), asrecarray=True, usemask=False)
+        full = stack_arrays((full, partial[rowInd]), asrecarray=True, usemask=False)
+        partial = np.delete(partial, rowInd, axis=0)
+        print(
+            "    According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(
+                rowInd))
     else:
-        print ("    According to the parameter setting, no feature is added to the set of fully-aligned ones")
+        print("    According to the parameter setting, no feature is added to the set of fully-aligned ones")
 
     return full, partial, unaligned
 
 
 def alignFeatures(fArray, featureFiles, paramFile):
     nFiles = len(featureFiles)
+
+    # Pandas dataframe to numpy structured array for internal computation
+    for i in range(nFiles):
+        fArray[i] = fArray[i].to_records(index=False)
 
     ###################
     # Load parameters #
@@ -626,13 +631,23 @@ def alignFeatures(fArray, featureFiles, paramFile):
         #################################################################
         print("  Feature alignment")
         print("  =================")
-        fullFeatures, partialFeatures, unalignedFeatures = findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, featureNames, params)
+        fullFeatures, partialFeatures, unalignedFeatures = findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray,
+                                                                               featureNames, params)
         print()
-        return fullFeatures, partialFeatures, unalignedFeatures
+
+        # Convert numpy structured arrays to pandas dataframe for sharing/storing
+        dfFull = pd.DataFrame(fullFeatures)
+        dfPartial = pd.DataFrame(partialFeatures)
+        dfArrayUnaligned = []
+        for unaligned in unalignedFeatures:
+            dfArrayUnaligned.append(pd.DataFrame(unaligned))
+
+        return dfFull, dfPartial, dfArrayUnaligned
     else:
         print("  Since a single feature is used, the feature alignment is skipped")
         fullFeatures = np.copy(fArray[0])  # Masked array to 2D numpy array
         print()
-        return fullFeatures, None, None
 
-
+        # Convert numpy structured arrays to pandas dataframe for sharing/storing
+        dfFull = pd.DataFrame(fullFeatures)
+        return dfFull, None, None

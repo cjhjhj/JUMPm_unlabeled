@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, re, pickle, utils, numpy as np, pandas as pd
+import os, sys, re, pickle, time, utils, numpy as np, pandas as pd
 from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
 
@@ -37,7 +37,7 @@ def intraConsolidation(ms2, scans, tol):
 
 
 def interConsolidation(specs, tol):
-    specs = [i for i in specs if i is not None] # Skip "None"
+    specs = [i for i in specs if i is not None]  # Skip "None"
     tic = [sum(s["intensity"]) for s in specs]
     if len(tic) > 1:
         ind = np.argmax(tic)
@@ -80,7 +80,8 @@ def interConsolidation(specs, tol):
             ind = np.where((spec["mz"] >= bins[i]) & (spec["mz"] < bins[i + 1]))[0]
             if len(ind) > 10:
                 # Select 10 highest intensity peaks
-                ind10 = sorted(range(len(spec["intensity"][ind])), key = lambda j: spec["intensity"][ind][j], reverse = True)[:10]
+                ind10 = sorted(range(len(spec["intensity"][ind])), key=lambda j: spec["intensity"][ind][j],
+                               reverse=True)[:10]
                 ind = ind[ind10]
             filteredSpec["mz"] = np.append(filteredSpec["mz"], spec["mz"][ind])
             filteredSpec["intensity"] = np.append(filteredSpec["intensity"], spec["intensity"][ind])
@@ -94,6 +95,7 @@ def interConsolidation(specs, tol):
 
 def ms2ForFeatures(full, mzxmlFiles, paramFile):
     print("  Identification of MS2 spectra for the features")
+    full = full.to_records(index=False)  # Change pd.dataframe to np.recarray for internal computation
 
     ######################################
     # Load parameters and initialization #
@@ -107,8 +109,8 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     tolInterMS2Consolidation = float(params["tol_inter_ms2_consolidation"])
     nFeatures = len(full)
     nFiles = len(mzxmlFiles)
-    featureToScan = np.empty((nFeatures, nFiles), dtype = object)
-    featureToSpec = np.empty((nFeatures, nFiles), dtype = object)
+    featureToScan = np.empty((nFeatures, nFiles), dtype=object)
+    featureToSpec = np.empty((nFeatures, nFiles), dtype=object)
 
     m = -1  # Index for input files
     for file in mzxmlFiles:
@@ -192,12 +194,13 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
             # 1. Charge state other than 0
             # 2. More frequent charge state
             # 3. If the same frequency, choose the lower one
+
             colNames = [col for col in full.dtype.names if col.endswith("_z")]
             charges = [c for c in full[colNames][i] if c > 0]
             if len(charges) == 0:
                 charge = 1
             else:
-                charge = max(set(charges), key = charges.count)
+                charge = max(set(charges), key=charges.count)
 
             spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
             spec["charge"] = charge

@@ -363,6 +363,10 @@ def detectFeatures(inputFile, paramFile):
             if max(f[i]["rt"]) > gMaxRt:
                 gMaxRt = max(f[i]["rt"])
 
+    if gMaxRt.unit_info == "minute":
+        gMaxRt = gMaxRt * 60
+        gMinRt = gMinRt * 60
+
     ###################################
     # Organization of output features #
     ###################################
@@ -478,4 +482,6 @@ def detectFeatures(inputFile, paramFile):
     ind = np.where(features["isotope"] == 1)[0]
     features = np.delete(features, ind)
     print ()
-    return features # Numpy structured array
+    df = pd.DataFrame(features)
+    df = df.drop(columns = ["isotope"])    # "isotope" column was internally used, and no need to be transferred
+    return df  # Pandas DataFrame

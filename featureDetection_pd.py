@@ -363,10 +363,15 @@ def detectFeatures(inputFile, paramFile):
             if max(f[i]["rt"]) > gMaxRt:
                 gMaxRt = max(f[i]["rt"])
 
+    if gMaxRt.unit_info == "minute":
+        gMaxRt = gMaxRt * 60
+        gMinRt = gMinRt * 60
+
     ###################################
     # Organization of output features #
     ###################################
     n = 0
+    features = []
     ms1ToFeatures = {}
     for i in range(len(f)):
         # 1. mz: mean m/z of a feauture = weighted average of m/z and intensity
@@ -394,15 +399,15 @@ def detectFeatures(inputFile, paramFile):
             maxRt = maxRt * 60
 
         # 6. MS1 scan number of the representative peak of a feature
-        ms1 = f[i]["num"][ind]
+        ms1 = int(f[i]["num"][ind])
 
         # 7. minMS1 and maxMS1
-        minMs1 = min(f[i]["num"])
-        maxMs1 = max(f[i]["num"])
+        minMs1 = int(min(f[i]["num"]))
+        maxMs1 = int(max(f[i]["num"]))
 
         # 8. SNratio (signal-to-noise ratio of the feature)
         if ms1 in noise:
-            noiseLevel = noise[ms1]
+            noiseLevel = noise[str(ms1)]
         else:
             noiseLevel = 500
         snRatio = intensity / noiseLevel
@@ -411,7 +416,6 @@ def detectFeatures(inputFile, paramFile):
         if intensity >= featureIntensityThreshold:
             # 9. Percentage of true feature
             pctTF = (maxRt - minRt) / (gMaxRt - gMinRt) * 100
-            # Organize features in a structured numpy array form
             if n == 0:
                 features = np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
                                     dtype="f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, f8, f8")
@@ -420,6 +424,7 @@ def detectFeatures(inputFile, paramFile):
                 features = np.append(features,
                                      np.array([(mz, intensity, z, rt, minRt, maxRt, ms1, minMs1, maxMs1, snRatio, pctTF, isotope)],
                                               dtype=features.dtype))
+
             for j in range(len(f[i]["num"])):
                 num = f[i]["num"][j]
                 if num not in ms1ToFeatures:
@@ -430,7 +435,6 @@ def detectFeatures(inputFile, paramFile):
                     ms1ToFeatures[num]["intensity"].append(f[i]["intensity"][j])
         else:
             continue
-
     features.dtype.names = ("mz", "intensity", "z", "RT", "minRT", "maxRT", "MS1", "minMS1", "maxMS1", "SNratio", "PercentageTF", "isotope")
 
     ##########################
@@ -478,4 +482,5 @@ def detectFeatures(inputFile, paramFile):
     ind = np.where(features["isotope"] == 1)[0]
     features = np.delete(features, ind)
     print ()
-    return features # Numpy structured array
+    df = pd.DataFrame(features)
+    return df # Pandas DataFrame

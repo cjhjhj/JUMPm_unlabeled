@@ -73,6 +73,20 @@ from pyteomics import mzxml
 #
 # print ()
 
-import urllib
-f = urllib.urlopen("ftp://ftp.ncbi.nlm.nih.gov/pubchem/Compound/CURRENT-Full/XML/")
-print(f.read())
+# import urllib
+# f = urllib.urlopen("ftp://ftp.ncbi.nlm.nih.gov/pubchem/Compound/CURRENT-Full/XML/")
+# print(f.read())
+
+# df = pd.DataFrame(np.array([[3, 5, 6], [4, 2, 8], [9, 7, 1]]), columns=['a', 'b', 'c'])
+# df2 = df.sort_values(by = "b", ascending = False, ignore_index = True)
+# df3 = df.sort_values(by = "b", ascending = False)
+# df4 = df3.reset_index(drop = True)
+# print(df)
+# print(df2)
+# print(df3)
+# print(df3.index)
+# print(df4)
+
+f = np.array([[3, 9, 1, 5]], dtype = "f8")
+f = np.vstack(f, [[4, 6, 8, 2]])
+print(f)
