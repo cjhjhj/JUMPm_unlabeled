@@ -75,3 +75,17 @@ loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"),
     }
     return(fit)
 }
+
+
+file = "../rt.txt"
+rts = read.table(file, sep = "\t", row.names = NULL, stringsAsFactors = F, comment.char = "", check.names = F)
+rts = as.matrix(rts)
+rowInd = which(!is.na(rts[,2]))
+x = rts[rowInd, 1]
+y = rts[rowInd, 2]
+xnew = rts[, 1]
+
+mod = loess.as(x, y, degree = 1, criterion = "aicc",
+               control = loess.control(surface = "direct")) ## This curve represents RT-shifts as a function of comp$Rt
+ynew = predict(mod, data.frame(x = xnew))
+

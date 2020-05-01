@@ -1,31 +1,68 @@
 rm(list = ls())
+library(limma)
 
-# Input: individual feature files
-# Output: fully-aligned feature file
-
-getParams = function (paramFile) {
+###############
+# Subroutines #
+###############
+parseParams = function (paramFile) {
     lines = readLines(paramFile)
-    params = list()
+    params = NULL
     for (i in 1:length(lines)) {
         lines[i] = gsub("\\s", "", lines[i])
         if (grepl("^#", lines[i]) | !grepl("=", lines[i])) {
             next
         } else {
-            line = gsub("#.*", "", lines[i])
-            key = unlist(strsplit(line, "="))[1]
-            val = unlist(strsplit(line, "="))[2]
-            params[[key]] = val
+            line_i = gsub("#.*", "", lines[i])
+            key = unlist(strsplit(line_i, "="))[1]
+            val = unlist(strsplit(line_i, "="))[2]
+        }
+        if (key == "output_name") {
+            params$output_name = as.character(val)
+        } else if (key == "mode") {
+            params$mode = as.numeric(val)
+        } else if (key == "tol_initial") {
+            params$initMzTol = as.numeric(val)
+        } else if (key == "sd_width") {
+            params$sdWidth = as.numeric(val)
+        } else if (key == "rescue") {
+            params$rescue = as.numeric(val)
+        } else if (key == "sd_width_rescue") {
+            params$sdWidth_rescue = as.numeric(val)
+        } else if (key == "intensity_level_rescue") {
+            params$intensityLevel_rescue = as.numeric(val)
+        } else if (key == "pct_intensity_ratio_rescue") {
+            params$pctIntensityRatio_rescue = as.numeric(val)
+        } else if (key == "pct_full_alignment") {
+            params$pctFullyAlignment = as.numeric(val)
+        } else if (key == "rt_tolerance_unit") {
+            val = gsub(" ", "", val)
+            params$rtTolUnit = as.numeric(unlist(strsplit(val, ",")))
+        } else if (key == "rt_tolerance_value") {
+            val = gsub(" ", "", val)
+            params$rtTolVal = as.numeric(unlist(strsplit(val, ",")))
+        } else if (key == "mz_tolerance_unit") {
+            val = gsub(" ", "", val)
+            params$mzTolUnit = as.numeric(unlist(strsplit(val, ",")))
+        } else if (key == "mz_tolerance_value") {
+            val = gsub(" ", "", val)
+            params$mzTolVal = as.numeric(unlist(strsplit(val, ",")))
+        } else if (key == "reference_feature") {
+            val = gsub(" ", "", val)
+            params$referenceFeature = as.character(val)
+        } else if (key == "skip_loading_bias_correction") {
+            val = gsub(" ", "", val)
+            params$skipLoadingBiasCorrection = as.numeric(val)
         }
     }
     return (params)
 }
 
-calibrateFeatures = function (ref, comp, params, LOG) {
-    initMzTol = as.numeric(params$"tol_initial")
-    sdWidth = as.numeric(params$"sd_width")
+featureCalibration = function (ref, comp, params, LOG) {
+    initMzTol = params$initMzTol
+    sdWidth = params$sdWidth
     
-    ref = ref[order(ref$intensity, decreasing = TRUE), ] ## Sort by intensity
-    comp = comp[order(comp$intensity, decreasing = TRUE), ] ## Sort by intensity
+    ref = ref[order(ref$Intensity, decreasing = TRUE), ] ## Sort by intensity
+    comp = comp[order(comp$Intensity, decreasing = TRUE), ] ## Sort by intensity
     
     ########################################
     ## Calibration of RT and m/z globally ##
@@ -63,7 +100,7 @@ calibrateFeatures = function (ref, comp, params, LOG) {
     ## the matched features are selected based on the global rt- and mz-shift
     rtSd = max(sd(rtShifts), 1e-3)
     mzSd = max(sd(mzShifts), 1e-3)
-    res = localCalibration(ref, comp, rtSd, mzSd, sdWidth, "RT")
+    res = localCalibration(ref, comp, rtSd, mzSd, params, "RT")
     estRtShift = predict(res$model, data.frame(x = comp$RT))
     comp$RT = comp$RT - estRtShift
     cat("    The 1st round of RT-calibration is done\n")
@@ -76,7 +113,7 @@ calibrateFeatures = function (ref, comp, params, LOG) {
     ## 2nd round of LOESS modeling and calibration of RT
     rtSd = res$dynRtSd
     mzSd = res$dynMzSd
-    res = localCalibration(ref, comp, rtSd, mzSd, sdWidth, "RT")
+    res = localCalibration(ref, comp, rtSd, mzSd, params, "RT")
     estRtShift = predict(res$model, data.frame(x = comp$RT))
     comp$RT = comp$RT - estRtShift
     cat("    The 2nd round of RT-calibration is done\n")
@@ -94,7 +131,7 @@ calibrateFeatures = function (ref, comp, params, LOG) {
     ## the matched features are selected based on the global rt- and mz-shift
     rtSd = res$dynRtSd
     mzSd = res$dynMzSd
-    res = localCalibration(ref, comp, rtSd, mzSd, sdWidth, "m/z")
+    res = localCalibration(ref, comp, rtSd, mzSd, params, "m/z")
     estMzShift = predict(res$model, data.frame(x = comp$mz))
     comp$mz = comp$mz / (1 + estMzShift / 1e6)
     cat("    The 1st round of m/z-calibration is done\n")
@@ -107,7 +144,7 @@ calibrateFeatures = function (ref, comp, params, LOG) {
     ## 2nd round of LOESS modeling and calibration of m/z
     rtSd = res$dynRtSd
     mzSd = res$dynMzSd
-    res = localCalibration(ref, comp, rtSd, mzSd, sdWidth, "m/z")
+    res = localCalibration(ref, comp, rtSd, mzSd, params, "m/z")
     estMzShift = predict(res$model, data.frame(x = comp$mz))
     comp$mz = comp$mz / (1 + estMzShift / 1e6)
     cat("    The 2nd round of m/z-calibration is done\n")
@@ -133,7 +170,7 @@ globalCalibration = function(ref, comp, mzTol = 20) {
         z = ref$z[i]
         mz = ref$mz[i]
         rt = ref$RT[i]
-        intensity = ref$intensity[i]
+        intensity = ref$Intensity[i]
         if (z == 0) {
             ## For a reference feature with undetermined charge, consider all possible charges
             rowInd = which(comp$mz >= mz - mz * mzTol / 1e6 & comp$mz < mz + mz * mzTol / 1e6)
@@ -148,7 +185,7 @@ globalCalibration = function(ref, comp, mzTol = 20) {
             subDf[j, 3] = intensity
             subDf[j, 4] = comp$mz[rowInd]
             subDf[j, 5] = comp$RT[rowInd]
-            subDf[j, 6] = comp$intensity[rowInd]
+            subDf[j, 6] = comp$Intensity[rowInd]
             comp = comp[-rowInd, ]
             j = j + 1
         }
@@ -161,7 +198,7 @@ globalCalibration = function(ref, comp, mzTol = 20) {
     rtShifts = subDf$"compRT" - subDf$"refRT"
     rtInd = which(rtShifts >= quantile(rtShifts, 0.1) & rtShifts <= quantile(rtShifts, 0.9))
     rtShifts = rtShifts[rtInd]
-    mzShifts = (subDf$"compMz" - subDf$"refMz") / subDf$"refMz" * 1e6
+    mzShifts = (subDf$"compMz" - subDf$"refMz") / subDf$"compMz" * 1e6
     mzInd = which(mzShifts >= quantile(mzShifts, 0.1) & mzShifts <= quantile(mzShifts, 0.9))
     mzShifts = mzShifts[mzInd]
     
@@ -169,7 +206,7 @@ globalCalibration = function(ref, comp, mzTol = 20) {
     return (res)
 }
 
-localCalibration = function(ref, comp, rtSd, mzSd, sdWidth, cal) {
+localCalibration = function(ref, comp, rtSd, mzSd, params, cal) {
     ## For each feature the reference sample, look for the corresponding feature
     ## to be aligned in the compared samples
     subDf = data.frame()
@@ -180,6 +217,7 @@ localCalibration = function(ref, comp, rtSd, mzSd, sdWidth, cal) {
     if (length(mzSd) == 1) {
         mzSd = rep(mzSd, n)
     }
+    sdWidth = params$sdWidth
     rtTol = sdWidth * rtSd
     mzTol = sdWidth * mzSd
     j = 1
@@ -187,9 +225,9 @@ localCalibration = function(ref, comp, rtSd, mzSd, sdWidth, cal) {
         z = ref$z[i]
         mz = ref$mz[i]
         rt = ref$RT[i]
-        intensity = ref$intensity[i]
+        intensity = ref$Intensity[i]
         rtErr = comp$RT - rt
-        mzErr = (comp$mz - mz) / mz * 1e6 ## unit of ppm
+        mzErr = (comp$mz - mz) / comp$mz * 1e6 ## unit of ppm
         if (z == 0) {
             ## For a reference feature with undetermined charge, consider all possible charges
             rowInd = which(abs(rtErr) <= rtTol[i] & abs(mzErr) <= mzTol[i])
@@ -207,7 +245,7 @@ localCalibration = function(ref, comp, rtSd, mzSd, sdWidth, cal) {
             subDf[j, 3] = intensity
             subDf[j, 4] = comp$mz[rowInd]
             subDf[j, 5] = comp$RT[rowInd]
-            subDf[j, 6] = comp$intensity[rowInd]
+            subDf[j, 6] = comp$Intensity[rowInd]
             j = j + 1
         }
     }
@@ -363,99 +401,6 @@ loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"),
     return(fit)
 }
 
-matchFeatures = function (ref, comp, refName, compName, rtSd, mzSd, params, LOG) {
-    sdWidth = as.numeric(params$"sd_width")
-    rescue = as.numeric(params$"rescue")
-
-    ## Sort features by their intensities (to consider high intensity features first)
-    ref = ref[order(ref$intensity, decreasing = T), ]
-    comp = comp[order(comp$intensity, decreasing = T), ]
-    
-    n = dim(ref)[1]
-    nc = dim(comp)[1]
-    cat(paste0("  ", refName, ": ", n, " features (reference run)\n"))
-    cat(paste0("  ", compName, ": ", nc, " features (compared run)\n"))
-    cat(paste0("  ", refName, ": ", n, " features (reference run)\n"), file = LOG)
-    cat(paste0("  ", compName, ": ", nc, " features (compared run)\n"), file = LOG)
-    
-    dfAligned = data.frame()
-    dfUnaligned = data.frame()
-    if (length(rtSd) == 1) {
-        rtSd = rep(rtSd, n)
-    }
-    if (length(mzSd) == 1) {
-        mzSd = rep(mzSd, n)
-    }
-    rtSd[rtSd == 0] = min(rtSd[rtSd > 0]) ## Prevent zero-tolerance of RT
-    mzSd[mzSd == 0] = min(mzSd[mzSd > 0]) ## Prevent zero-tolerance of m/z
-    rtTol = sdWidth * rtSd
-    mzTol = sdWidth * mzSd
-    
-    j = 1
-    mzShifts = NULL
-    rtShifts = NULL
-    for (i in 1:n) {
-        mz = ref$mz[i]
-        rt = ref$RT[i]
-        intensity = ref$intensity[i]
-        charge = ref$z[i]
-        rtErr = comp$RT - rt
-        mzErr = (comp$mz - mz) / mz * 1e6
-        rowInd = which(abs(rtErr) <= rtTol[i] & abs(mzErr) <= mzTol[i])
-        
-        ## When there is/are matched feature(s)
-        if (length(rowInd) > 0) {
-            ## Check charge states of the matched features
-            ## 0 charge state can be matched to any charge state
-            if (charge == 0) {
-                rowInd = rowInd[1]
-                dfAligned = rbind(dfAligned, cbind(ref[i, ], comp[rowInd, ]))
-                comp = comp[-rowInd, ]
-            } else {
-                if (comp[rowInd[1], ]$z == 0) { ## When the compared features has charge 0, it is okay
-                    rowInd = rowInd[1]
-                    dfAligned = rbind(dfAligned, cbind(ref[i, ], comp[rowInd, ]))
-                    comp = comp[-rowInd, ]
-                } else {
-                    chargeInd = which(comp$z[rowInd] == charge)
-                    if (length(chargeInd) > 0) {
-                        rowInd = rowInd[chargeInd[1]]
-                        dfAligned = rbind(dfAligned, cbind(ref[i, ], comp[rowInd, ]))
-                        comp = comp[-rowInd, ]
-                    }
-                }
-            }
-        }
-    }
-    colnames(dfAligned) = c(paste0("ref_", names(ref)), paste0("comp_", names(comp)))
-    nAligned = dim(dfAligned)[1]
-    cat(paste0("    ", nAligned, " features are aligned between runs\n\n"))
-    cat(paste0("    ", nAligned, " features are aligned between runs\n\n"), file = LOG)
-    
-    
-    
-    ## For public release, "rescue" function is silenced (too complidated)
-    
-    
-        
-    # ######################################
-    # ## Rescue some "unaligned" features ##
-    # ######################################
-    # if (rescue == 1) {
-    #     rtTolUnit = as.numeric(unlist(strsplit(params$"rt_tolerance_unit", ",")))
-    #     mzTolUnit = as.numeric(unlist(strsplit(params$"mz_tolerance_unit", ",")))
-    #     rtTol = as.numeric(unlist(strsplit(params$"rt_tolerance_value", ",")))
-    #     mzTol = as.numeric(unlist(strsplit(params$"mz_tolerance_value", ",")))
-    #     for (i in 1:length(rtTolUnit)) {
-    #         res = rescueFeatures(ref, comp, dfAligned, rtSd, mzSd, rtTolUnit[i], rtTol[i], mzTolUnit[i], mzTol[i])
-    #         ref = res$ref
-    #         comp = res$comp
-    #         dfAligned = res$dfAligned
-    #     }
-    # }
-    return (dfAligned)
-}
-
 rescueFeatures = function (ref, comp, dfAligned, rtSd, mzSd, rtTolScale, rtTol, mzTolScale, mzTol) {
     nUnaligned = dim(comp)[1]
     cat(paste0("    There are ", nUnaligned, " unaligned features\n"))
@@ -476,9 +421,9 @@ rescueFeatures = function (ref, comp, dfAligned, rtSd, mzSd, rtTolScale, rtTol, 
     ##    - Absolute intensity level: hard-coded (grand median intensity of aligned features)
     ##    - Intensity-ratio between the ref- and comp-runs: hard-coded, within 95% of the ratios of aligned features)
     ##    - RT- and m/z-shifts should be within specified tolerances (e.g. 10SD or 10ppm)
-    resIntLevel = median(as.matrix(dfAligned[, grep("intensity", colnames(dfAligned))]))
+    resIntLevel = median(as.matrix(dfAligned[, grep("Intensity", colnames(dfAligned))]))
     resRatioPct = 95 ## Hard-coded
-    intRatioAligned = log(dfAligned$"comp_intensity", 2) - log(dfAligned$"ref_intensity", 2)
+    intRatioAligned = log(dfAligned$"comp_Intensity", 2) - log(dfAligned$"ref_Intensity", 2)
     lRatio = quantile(intRatioAligned, (1 - resRatioPct / 100) / 2)
     uRatio = quantile(intRatioAligned, 1 - (1 - resRatioPct / 100) / 2)
     cat(paste0("    - Intensity higher than ", resIntLevel, " (median intensity of aligned features)\n"))
@@ -517,10 +462,10 @@ rescueFeatures = function (ref, comp, dfAligned, rtSd, mzSd, rtTolScale, rtTol, 
     }
     
     for (i in 1:dim(ref)[1]) {
-        intRatio = log(comp$intensity, 2) - log(ref$intensity[i], 2)
+        intRatio = log(comp$Intensity, 2) - log(ref$Intensity[i], 2)
         mzShift = (comp$mz - ref$mz[i]) / comp$mz * 1e6
         rtShift = comp$RT - ref$RT[i]
-        selInd = which(comp$intensity > resIntLevel &
+        selInd = which(comp$Intensity > resIntLevel &
                            intRatio >= lRatio & intRatio <= uRatio &
                            abs(mzShift) <= mzTol[i] &
                            abs(rtShift) <= rtTol[i])
@@ -562,11 +507,100 @@ rescueFeatures = function (ref, comp, dfAligned, rtSd, mzSd, rtTolScale, rtTol, 
     return (res)
 }
 
+matchFeatures = function (ref, comp, refName, compName, rtSd, mzSd, params, LOG) {
+    sdWidth = params$sdWidth
+    rescue = params$rescue
+    resSdWidth = params$sdWidth_rescue
+    # resIntLevel = params$intensityLevel_rescue
+    #resRatioPct = params$pctIntensityRatio_rescue
+    
+    ## Sort features by their intensities (to consider high intensity features first)
+    ref = ref[order(ref$Intensity, decreasing = T), ]
+    comp = comp[order(comp$Intensity, decreasing = T), ]
+    
+    n = dim(ref)[1]
+    nc = dim(comp)[1]
+    cat(paste0("  ", refName, ":", n, " features (reference run)\n"))
+    cat(paste0("  ", compName, ":", nc, " features (compared run)\n"))
+    cat(paste0("  ", refName, ":", n, " features (reference run)\n"), file = LOG)
+    cat(paste0("  ", compName, ":", nc, " features (compared run)\n"), file = LOG)
+    
+    dfAligned = data.frame()
+    dfUnaligned = data.frame()
+    if (length(rtSd) == 1) {
+        rtSd = rep(rtSd, n)
+    }
+    if (length(mzSd) == 1) {
+        mzSd = rep(mzSd, n)
+    }
+    rtSd[rtSd == 0] = min(rtSd[rtSd > 0]) ## Prevent zero-tolerance of RT
+    mzSd[mzSd == 0] = min(mzSd[mzSd > 0]) ## Prevent zero-tolerance of m/z
+    rtTol = sdWidth * rtSd
+    mzTol = sdWidth * mzSd
+    
+    j = 1
+    mzShifts = NULL
+    rtShifts = NULL
+    for (i in 1:n) {
+        mz = ref$mz[i]
+        rt = ref$RT[i]
+        intensity = ref$Intensity[i]
+        charge = ref$z[i]
+        rtErr = comp$RT - rt
+        mzErr = (comp$mz - mz) / comp$mz * 1e6
+        rowInd = which(abs(rtErr) <= rtTol[i] & abs(mzErr) <= mzTol[i])
+        
+        ## When there is/are matched feature(s)
+        if (length(rowInd) > 0) {
+            ## Check charge states of the matched features
+            ## 0 charge state can be matched to any charge state
+            if (charge == 0) {
+                rowInd = rowInd[1]
+                dfAligned = rbind(dfAligned, cbind(ref[i, ], comp[rowInd, ]))
+                comp = comp[-rowInd, ]
+            } else {
+                if (comp[rowInd[1], ]$z == 0) { ## When the compared features has charge 0, it is okay
+                    rowInd = rowInd[1]
+                    dfAligned = rbind(dfAligned, cbind(ref[i, ], comp[rowInd, ]))
+                    comp = comp[-rowInd, ]
+                } else {
+                    chargeInd = which(comp$z[rowInd] == charge)
+                    if (length(chargeInd) > 0) {
+                        rowInd = rowInd[chargeInd[1]]
+                        dfAligned = rbind(dfAligned, cbind(ref[i, ], comp[rowInd, ]))
+                        comp = comp[-rowInd, ]
+                    }
+                }
+            }
+        }
+    }
+    colnames(dfAligned) = c(paste0("ref_", names(ref)), paste0("comp_", names(comp)))
+    nAligned = dim(dfAligned)[1]
+    cat(paste0("    ", nAligned, " features are aligned between runs\n"))
+    cat(paste0("    ", nAligned, " features are aligned between runs\n"), file = LOG)
+    
+    ######################################
+    ## Rescue some "unaligned" features ##
+    ######################################
+    # if (rescue == 1) {
+    # 	rtTolUnit = params$rtTolUnit
+    # 	mzTolUnit = params$mzTolUnit
+    # 	rtTol = params$rtTolVal
+    # 	mzTol = params$mzTolVal
+    # 	for (i in 1:length(rtTolUnit)) {
+    # 		res = rescueFeatures(ref, comp, dfAligned, rtSd, mzSd, rtTolUnit[i], rtTol[i], mzTolUnit[i], mzTol[i])
+    # 		ref = res$ref
+    # 		comp = res$comp
+    # 		dfAligned = res$dfAligned
+    # 	}
+    # }
+    return (dfAligned)
+}
+
 findMatchedFeatures = function(matched, calibrated, files, samples) {
     ## Caution
     ## Input arguments files and samples should have the same order as defined in the parameter file
-    nFiles = length(matched)
-    files = files[1:nFiles]
+    nFiles = length(files)
     
     refRunNo = NULL
     for (i in 1:length(matched)) {
@@ -616,7 +650,7 @@ findMatchedFeatures = function(matched, calibrated, files, samples) {
     
     ## Manipulation of column names
     header = NULL
-    for (i in 1:nFiles) {
+    for (i in 1:length(files)) {
         filename = basename(files[i])
         filename = gsub(".\\d+.feature", "", filename)
         header = c(header, rep(filename, nCols))
@@ -636,7 +670,7 @@ findMatchedFeatures = function(matched, calibrated, files, samples) {
                 next
             } else {
                 ind = which(matched[[j]][, 1] == partialInd[i])
-                if (length(ind) == 1) {
+                if (length(ind) > 0) {
                     features[i, ((j - 1) * nCols + 1) : (j * nCols)] = matched[[j]][ind, (nCols + 1) : (2 * nCols)]
                     features[i, ((refRunNo - 1) * nCols + 1) : (refRunNo * nCols)] = matched[[j]][ind, 1 : nCols]
                 } else if (length(ind) > 1) {
@@ -648,7 +682,7 @@ findMatchedFeatures = function(matched, calibrated, files, samples) {
     
     ## Manipulation of column names
     header = NULL
-    for (i in 1:nFiles) {
+    for (i in 1:length(files)) {
         filename = basename(files[i])
         filename = gsub(".\\d+.feature", "", filename)
         header = c(header, rep(filename, nCols))
@@ -661,7 +695,7 @@ findMatchedFeatures = function(matched, calibrated, files, samples) {
     ## 3. Un-matched features ##
     ############################
     unmatchedFeatures = list()
-    for (i in 1:nFiles) {
+    for (i in 1:length(files)) {
         filename = basename(files[i])
         filename = gsub(".\\d+.feature", "", filename)
         if (i == refRunNo) {
@@ -674,61 +708,6 @@ findMatchedFeatures = function(matched, calibrated, files, samples) {
         unmatchedFeatures[[filename]] = calibrated[[i]][calibrated[[i]]$index %in% unInd, ]
     }
     
-    ##############################
-    ## Alignment/match summary  ##
-    ##############################
-    cat("  Alignment/matching summary\n")
-    cat("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows\n")
-    cat("    Filename\t\tFully-aligned\tPartially-aligned\tun-aligned\n")
-    cat("  Alignment/matching summary\n", file = LOG)
-    cat("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows\n", file = LOG)
-    cat("    Filename\t\tFully-aligned\tPartially-aligned\tun-aligned\n", file = LOG)
-    for (i in 1:nFiles) {
-        filename = basename(files[i])
-        filename = gsub(".\\d+.feature", "", filename)
-        nFull = length(fullInd)
-        nPartial = sum(!is.na(partialFeatures[[paste0(filename, "_index")]]))
-        nUnmatched = dim(unmatchedFeatures[[filename]])[1]
-        cat(paste0("    ", filename, "\t\t", nFull, "\t\t", nPartial, "\t\t", nUnmatched, "\n"))
-        cat(paste0("    ", filename, "\t\t", nFull, "\t\t", nPartial, "\t\t", nUnmatched, "\n"), file = LOG)
-    }
-    cat("\n")
-    cat(paste0("    There are ", nrow(partialFeatures), " partially-aligned features\n"))
-    cat("\n", file = LOG)
-    cat(paste0("    There are ", nrow(partialFeatures), " partially-aligned features\n"), file = LOG)
-    colInd = grep("index", colnames(partialFeatures))
-    nRuns = apply(!is.na(partialFeatures[, colInd]), 1, sum)
-    for (i in (length(files) - 1):2) {
-        cat(paste0("    Partially-aligned features over ", i, " runs = ", sum(nRuns == i), "\n"))
-        cat(paste0("    Partially-aligned features over ", i, " runs = ", sum(nRuns == i), "\n"), file = LOG)
-    }
-    
-    ## Depending on the parameter, some "partially-aligned" features are merged to "fully-aligned" ones
-    pctFullyAlignment = params$"pct_full_alignment"
-    if (pctFullyAlignment < 100) {
-        colInd = grep("index", colnames(partialFeatures))
-        nRuns = apply(!is.na(partialFeatures[, colInd]), 1, sum)
-        rowInd = which(nRuns >= ceiling(pctFullyAlignment / 100 * length(files)))	  
-        if (length(rowInd) > 0) {
-            fullFeatures = rbind(fullFeatures, partialFeatures[rowInd, ])
-            fullInd = c(fullInd, partialInd[rowInd])
-            partialFeatures = partialFeatures[-rowInd, ]
-            partialInd = partialInd[-rowInd]
-            cat("\n")
-            cat("    According to the parameter setting,", length(rowInd), "partially-aligned features are regarded as fully-aligned\n")
-            cat("\n", file = LOG)
-            cat("    According to the parameter setting,", length(rowInd), "partially-aligned features are regarded as fully-aligned\n", file = LOG)
-        } else {
-            cat("\n")
-            cat("    According to the parameter setting, no feature is added to the set of fully-aligned ones\n")
-            cat("\n", file = LOG)
-            cat("    According to the parameter setting, no feature is added to the set of fully-aligned ones\n", file = LOG)
-        }
-    }
-    
-    cat("\n")
-    cat("\n", file = LOG)
-
     ############
     ## Output ##
     ############
@@ -738,15 +717,236 @@ findMatchedFeatures = function(matched, calibrated, files, samples) {
     return (res)
 }
 
-quantifyFeatures = function(fullFeatures, params, LOG) {
-    expr = fullFeatures[, grep("intensity", colnames(fullFeatures))]
+
+################
+# Main routine #
+################
+
+# Parameters
+#  output_name: prefix of output files containing fully- and partially-aligned features
+#  initMzTol: initial m/z-tolerance for the global calibration (default = 20 ppm)
+#  sdWidth: SD-width for RT- and m/z-tolerances (when finding "matched/aligned" features, default = 5)
+#  rescue: whether or not to rescue unaligned features by loosening RT- and m/z-tolerances (default = 1 (yes))
+#  sdWidth_rescue: SD-width for RT- and m/z-tolerances (when rescuing "unmatched/unaligned" features, default = 10)
+#  intensityLevel_rescue: absolute intensity threshold of the features to be considered in the rescue step (default = 1e5)
+#  pctIntensityRatio_rescue: percentage threshold of intensity-ratios of the aligned features (default = 95)
+#                            the unaligned features whose intensity-ratios are within this percentage (of the ratios of aligned ones)
+#                            will be considred in the rescue step
+#  pctFullyAlignment: percentage of samples are grouped into a feature (e.g. 100% = feature is formed by peaks present in all samples)
+#  files: array of input .feature files
+
+############################
+## Parse input arguments  ##
+############################
+startTime = Sys.time()
+args = commandArgs(trailingOnly = TRUE)
+paramFile = args[1]
+filenames = args[2]
+outDirectory = args[3]
+logFile = args[4]
+LOG = file(logFile, "w")
+params = parseParams(paramFile)
+files = unlist(strsplit(filenames, ","))
+
+# ## For testing in a desktop
+# startTime = Sys.time()
+# paramFile = "../IROAsamples/jumpm_negative.params"
+# filenames = "../IROAsamples/IROA_IS_NEG_1.1.feature,../IROAsamples/IROA_IS_NEG_2.1.feature,../IROAsamples/IROA_IS_NEG_3.1.feature"
+# # filenames = "../../Dev/JUMPm_unlabel_python/IROA_IS_NEG_1.feature,../../Dev/JUMPm_unlabel_python/IROA_IS_NEG_2.feature,../../Dev/JUMPm_unlabel_python/IROA_IS_NEG_3.feature"
+# outDirectory = "."
+# logFile = "tmplog"
+# LOG = file(logFile, 'a')
+# params = parseParams(paramFile)
+# files = unlist(strsplit(filenames, ","))
+
+#############################################
+## Read feature files generated from JUMPm ##
+#############################################
+features = list()
+for (i in 1:length(files)) {
+    df = read.table(files[i], header = T, sep = "\t", row.names = NULL,
+                    stringsAsFactors = F, comment.char = "", check.names = F)
+    colnames(df) = gsub(" ", "", colnames(df))
+    colnames(df) = gsub("/", "", colnames(df))
+    features[[i]] = df
+}
+
+############################################################
+## Alignment and so forth when there are multiple samples ##
+############################################################
+if (length(files) > 1) {
+    cat("\n\n  Feature calibration\n")
+    cat("  ===================\n\n")
+    cat("\n\n  Feature calibration\n", file = LOG)
+    cat("  ===================\n\n", file = LOG)
+    
+    ################################
+    ## Select a reference sample  ##
+    ################################
+    if (params$referenceFeature == "0") {
+        ## A sample with the largest median of top 100 intensities is set to a reference run
+        refNo = 1
+        refIntensity = 0
+        for (i in 1:length(features)) {
+            tmpIntensity = median(sort(features[[i]]$Intensity, decreasing = T)[1:100])
+            if (tmpIntensity >= refIntensity) {
+                refNo = i
+                refIntensity = tmpIntensity
+            }
+        }
+    } else {
+        refNo = which(files == params$referenceFeature)
+    }
+    cat(paste0("  ", basename(files[refNo]), " is chosen as the reference run\n"))
+    cat(paste0("  ", basename(files[refNo]), " is chosen as the reference run\n"), file = LOG)
+    
+    ##############################################################
+    ## Calibration of features against those in a reference run ##
+    ##############################################################
+    calibratedFeatures = list()
+    rtSd = list()
+    mzSd = list()
+    for (i in 1:length(files)) {
+        if (i == refNo) {
+            calibratedFeatures[[i]] = features[[i]]
+            rtSd[[i]] = NA
+            mzSd[[i]] = NA
+        } else {
+            cat(paste0("\n  ", basename(files[i]), " is being aligned against the reference run (it may take a while)\n"))
+            cat(paste0("\n  ", basename(files[i]), " is being aligned against the reference run (it may take a while)\n"), file = LOG)
+            res = featureCalibration(features[[refNo]], features[[i]], params, LOG)
+            calibratedFeatures[[i]] = res$calibratedFeature
+            rtSd[[i]] = res$rtSd
+            mzSd[[i]] = res$mzSd
+        }
+    }
+    cat("\n")
+    cat("\n", file = LOG)
+    
+    ########################
+    ## Calibration summary  ##
+    ########################
+    cat("  Calibration summary\n")
+    cat("    After calibration, RT- and m/z-shifts of each run (against a reference run) are centered to zero\n")
+    cat("    Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows\n")
+    cat("    Filename\t\t# features\tSD RT-shift[second]\tSD m/z-shift[ppm]\n")
+    cat("  Calibration summary\n", file = LOG)
+    cat("    After calibration, RT- and m/z-shifts of each run (against a reference run) are centered to zero\n", file = LOG)
+    cat("    Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows\n", file = LOG)
+    cat("    Filename\t\t# features\tSD RT-shift[second]\tSD m/z-shift[ppm]\n", file = LOG)
+    for (i in 1:length(files)) {
+        filename = basename(files[i])
+        filename = gsub(".\\d+.feature", "", filename)
+        nFeatures = nrow(features[[i]])
+        if (i == refNo) {
+            meanRtSd = "NA (reference)"
+            meanMzSd = "NA (reference)"
+        } else {
+            meanRtSd = sprintf("%.6f", mean(rtSd[[i]]))
+            meanMzSd = sprintf("%.6f", mean(mzSd[[i]]))
+        }
+        cat(paste0("    ", filename, "\t\t", nFeatures, "\t\t", meanRtSd, "\t", meanMzSd, "\n"))
+        cat(paste0("    ", filename, "\t\t", nFeatures, "\t\t", meanRtSd, "\t", meanMzSd, "\n"), file = LOG)
+    }
+    cat("\n")
+    cat("\n", file = LOG)
+    
+    ################################
+    ## Identify aligned features  ##
+    ################################
+    cat("  Feature alignment\n")
+    cat("  =================\n\n")
+    cat("  Feature alignment\n", file = LOG)
+    cat("  =================\n\n", file = LOG)
+    matchedFeatures = list()
+    for (i in 1:length(files)) {
+        if (i == refNo) {
+            matchedFeatures[[i]] = NA
+        } else {
+            matchedFeatures[[i]] = matchFeatures(calibratedFeatures[[refNo]], calibratedFeatures[[i]],
+                                                 basename(files[refNo]), basename(files[i]),
+                                                 rtSd[[i]], mzSd[[i]], params, LOG)
+        }
+    }
+    
+    ##############################################
+    ## Summarization and organization of output ##
+    ##############################################
+    ## Fully-, partially- and un-matched/aligned features
+    res = findMatchedFeatures(matchedFeatures, calibratedFeatures, files)
+    
+    ##############################
+    ## Alignment/match summary  ##
+    ##############################
+    cat("  Alignment/matching summary\n")
+    cat("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows\n")
+    cat("    Filename\t\tFully-aligned\tPartially-aligned\tun-aligned\n")
+    cat("  Alignment/matching summary\n", file = LOG)
+    cat("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows\n", file = LOG)
+    cat("    Filename\t\tFully-aligned\tPartially-aligned\tun-aligned\n", file = LOG)
+    for (i in 1:length(files)) {
+        filename = basename(files[i])
+        filename = gsub(".\\d+.feature", "", filename)
+        nFull = length(res$fullInd)
+        nPartial = sum(!is.na(res$partialFeatures[[paste0(filename, "_index")]]))
+        nUnmatched = dim(res$unmatchedFeatures[[filename]])[1]
+        cat(paste0("    ", filename, "\t\t", nFull, "\t\t", nPartial, "\t\t", nUnmatched, "\n"))
+        cat(paste0("    ", filename, "\t\t", nFull, "\t\t", nPartial, "\t\t", nUnmatched, "\n"), file = LOG)
+    }
+    cat("\n")
+    cat(paste0("    There are ", nrow(res$partialFeatures), " partially-aligned features\n"))
+    cat("\n", file = LOG)
+    cat(paste0("    There are ", nrow(res$partialFeatures), " partially-aligned features\n"), file = LOG)
+    colInd = grep("index", colnames(res$partialFeatures))
+    nRuns = apply(!is.na(res$partialFeatures[, colInd]), 1, sum)
+    for (i in (length(files) - 1):2) {
+        cat(paste0("    Partially-aligned features over ", i, " runs = ", sum(nRuns == i), "\n"))
+        cat(paste0("    Partially-aligned features over ", i, " runs = ", sum(nRuns == i), "\n"), file = LOG)
+    }
+    
+    ## Depending on the parameter, some "partially-aligned" features are merged to "fully-aligned" ones
+    if (!is.null(params$pctFullyAlignment)) {
+        pctFullyAlignment = params$pctFullyAlignment
+        if (pctFullyAlignment < 100) {
+            colInd = grep("index", colnames(res$partialFeatures))
+            nRuns = apply(!is.na(res$partialFeatures[, colInd]), 1, sum)
+            rowInd = which(nRuns >= ceiling(pctFullyAlignment / 100 * length(files)))	  
+            if (length(rowInd) > 0) {
+                res$fullFeatures = rbind(res$fullFeatures, res$partialFeatures[rowInd, ])
+                res$fullInd = c(res$fullInd, res$partialInd[rowInd])
+                res$partialFeatures = res$partialFeatures[-rowInd, ]
+                res$partialInd = res$partialInd[-rowInd]
+                cat("\n")
+                cat("    According to the parameter setting,", length(rowInd), "partially-aligned features are regarded as fully-aligned\n")
+                cat("\n", file = LOG)
+                cat("    According to the parameter setting,", length(rowInd), "partially-aligned features are regarded as fully-aligned\n", file = LOG)
+            } else {
+                cat("\n")
+                cat("    According to the parameter setting, no feature is added to the set of fully-aligned ones\n")
+                cat("\n", file = LOG)
+                cat("    According to the parameter setting, no feature is added to the set of fully-aligned ones\n", file = LOG)
+            }
+        }
+    }
+    cat("\n")
+    cat("\n", file = LOG)
+    
+    ##############################
+    ## Processing quantity data ##
+    ##############################
+    cat("  Quantity information\n")
+    cat("  ====================\n")
+    cat("  Quantity information\n", file = LOG)
+    cat("  ====================\n", file = LOG)
+    fullFeatures = res$fullFeatures
+    expr = fullFeatures[, grep("Intensity", colnames(fullFeatures))]
     
     ## Calculation and printout of loading-biases (filter out the most variable features +/- 10%)
     cat("  Loading-bias summary\n")
     cat("  Loading-bias summary\n", file = LOG)
-    colInd = grep("intensity", colnames(expr))
+    colInd = grep("Intensity", colnames(expr))
     sampleName = colnames(expr)[colInd]
-    sampleName = gsub("_intensity", "", sampleName)
+    sampleName = gsub("_Intensity", "", sampleName)
     lexpr = expr[, colInd] ## Feature intensity table for loading-bias calculation
     nFeatures = dim(lexpr)[1]
     nSamples = dim(lexpr)[2]
@@ -770,7 +970,7 @@ quantifyFeatures = function(fullFeatures, params, LOG) {
     ## Normalization (i.e. loading-bias correction) based on trimmed-mean intensities
     expr = log2(expr)
     rowSel = NULL
-    if (params$"skip_loading_bias_correction" == "0") {
+    if (params$skipLoadingBiasCorrection == 0) {
         ## Parameters for normalization
         intensityThreshold_normalization = quantile(as.matrix(expr), 0.2, na.rm = T) ## 10% percentile of overall intensities
         trimPct_normalization = 0.1 ## 10% lowest and 10% highest intensities are to be trimmed
@@ -796,174 +996,124 @@ quantifyFeatures = function(fullFeatures, params, LOG) {
         }    
     }
     
-    colInd = grep("intensity", colnames(fullFeatures))
-    for (i in 1:length(colInd)) {
+    colInd = grep("Intensity", colnames(res$fullFeatures))
+    for (i in 1:length(files)) {
         ## Replace intensity values in res$fullFeatures with the normalized intensity values
-        fullFeatures[, colInd[i]] = 2 ^ expr[, i]
+        res$fullFeatures[, colInd[i]] = 2 ^ expr[, i]
     }
     
-    return (fullFeatures)
-}
-
-
-#################
-##### Main ######
-#################
-args = commandArgs(trailingOnly = TRUE)
-
-# For test,
-args[1] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/IROA_IS_NEG_1.1.dev.feature"
-args[2] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/IROA_IS_NEG_2.1.dev.feature"
-args[3] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/IROA_IS_NEG_3.1.dev.feature"
-args[4] = "U:/Research/Projects/7Metabolomics/JUMPm/IROAsamples/jumpm_negative.params"
-args[5] = nullfile()
-
-##################################
-## Load features and parameters ##
-##################################
-nArgs = length(args)
-
-
-## To-do: argument check function
-
-
-nFeatureFiles = nArgs - 2 ## The last argument is a parameter file
-features = list()
-for (i in 1:nFeatureFiles) {
-    df = read.table(args[i], header = T, sep = "\t", row.names = NULL,
-                    stringsAsFactors = F, comment.char = "", check.names = F)
-    colnames(df) = gsub(" ", "", colnames(df))
-    colnames(df) = gsub("/", "", colnames(df))
-    features[[i]] = df
-
-}
-paramFile = args[nArgs - 1]
-params = getParams(paramFile)
-LOG = args[nArgs]
-
-# Assume that "features[[i]]" is a data.frame with the following column names
-# 'index' = nominal feature index
-# 'mz' = m/z value of a feature
-# 'z' = charge of the feature (0 for undetermined)
-# 'MS1ScanNumber' = representative MS1 scan number of the feature
-# 'minMS1ScanNumber' = minimum MS1 scan number of the feature (spanned)
-# 'maxMS1ScanNumber' = maximum MS1 scan number of the feature (spanned)
-# 'RT' = representative RT (should correspond to MS1ScanNumber)
-# 'minRT' = minimum RT
-# 'maxRT' = maximum RT
-# 'intensity' = intensity of the feature
-# 'SN' = signal-to-noise ratio
-# 'PercentageTF' = percentage of true feature (= feature width over RT/scan)
-
-############################################
-## Feature calibration (global and local) ##
-############################################
-calibratedFeatures = list()
-if (length(features) > 1) {
-    cat("\n\n  Feature calibration\n")
-    cat("  ===================\n")
-    cat("\n\n  Feature calibration\n", file = LOG)
-    cat("  ===================\n", file = LOG)
-
-    # Select a reference run
-    if (params$"reference_feature" == "0") {
-        ## A run whose median intensity of top 100 features is set to a reference
-        refNo = 1
-        refIntensity = 0
-        for (i in 1:length(features)) {
-            tmpIntensity = median(sort(features[[i]]$intensity, decreasing = T)[1:100])
-            if (tmpIntensity >= refIntensity) {
-                refNo = i
-                refIntensity = tmpIntensity
-            }
-        }
-    } else {
-        refNo = which(args == params$"referene_feature")
+    ############################
+    ## Write output to files  ##
+    ############################
+    ## Old fully-matched features
+    fullFeatures = res$fullFeatures
+    fMz = round(apply(fullFeatures[, grep("mz", colnames(fullFeatures))], 1, mean, na.rm = T), 5) # Feature m/z (averaged over runs)
+    meanMz = round(apply(fullFeatures[, grep("mz", colnames(fullFeatures))], 1, mean, na.rm = T), 5) # Feature m/z (averaged over runs)
+    fullFeatures = cbind("meanMz" = fMz, fullFeatures)
+    fullFeatures = fullFeatures[order(fullFeatures$meanMz), ]
+    outputFile = paste0(outDirectory, "/.", params$output_name, "_fully_aligned.feature") ## Hidden by adding "." (dot) to the file name
+    write.table(fullFeatures, outputFile, sep = "\t", row.names = F, quote = F)
+    
+    ## Partially-matched features
+    outputFile = paste0(outDirectory, "/", params$output_name, "_partially_aligned.feature")
+    write.table(res$partialFeatures, outputFile, sep = "\t", row.names = F, quote = F)
+    
+    ## Unmatched features
+    for (i in 1:length(res$unmatchedFeatures)) {
+        outputFile = paste0(outDirectory, "/", params$output_name, "_", basename(files[i]))
+        outputFile = gsub(".\\d+.feature", "_unaligned.feature", outputFile)
+        write.table(res$unmatchedFeatures[[i]], outputFile, sep = "\t", row.names = F, quote = F)
     }
-
-    ## Calibration of features
-    rtSd = list()
-    mzSd = list()
-    for (i in 1:length(features)) {
-        if (i == refNo) {
-            calibratedFeatures[[i]] = features[[i]]
-            rtSd[[i]] = NA
-            mzSd[[i]] = NA
-        } else {
-
-            cat(paste0("  ", basename(args[i]), " is being aligned against the reference run (it may take a while)\n"))
-            cat(paste0("  ", basename(args[i]), " is being aligned against the reference run (it may take a while)\n"), file = LOG)
-            res = calibrateFeatures(features[[refNo]], features[[i]], params, LOG)
-            calibratedFeatures[[i]] = res$calibratedFeature
-            rtSd[[i]] = res$rtSd
-            mzSd[[i]] = res$mzSd
-        }
-    }
-    cat("\n")
-    cat("\n", file = LOG)
+    ## End of the alignment and generation of necessary files
+    
+    ########################################################
+    ## Generation of output file for single-file analysis ##
+    ########################################################
 } else {
-    cat("Since a single file is used, the feature alignment is skipped\n")
-}
-
-################################
-## Summary of the calibration ##
-################################
-cat("  Calibration summary\n")
-cat("    After calibration, RT- and m/z-shifts of each run (against a reference run) are centered to zero\n")
-cat("    Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows\n")
-cat("    Filename\t\t# features\tSD RT-shift[second]\tSD m/z-shift[ppm]\n")
-cat("  Calibration summary\n", file = LOG)
-cat("    After calibration, RT- and m/z-shifts of each run (against a reference run) are centered to zero\n", file = LOG)
-cat("    Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows\n", file = LOG)
-cat("    Filename\t\t# features\tSD RT-shift[second]\tSD m/z-shift[ppm]\n", file = LOG)
-for (i in 1:nFeatureFiles) {
-    filename = basename(args[i])
+    cat("  Since a single file is used, the feature alignment step is skipped\n")
+    cat("  Since a single file is used, the feature alignment step is skipped\n", file = LOG)
+    
+    ## Old fully-matched features
+    fullFeatures = features[[1]]
+    meanMz = fullFeatures$mz
+    filename = basename(files[1])
     filename = gsub(".\\d+.feature", "", filename)
-    nFeatures = nrow(features[[i]])
-    if (i == refNo) {
-        meanRtSd = "NA (reference)"
-        meanMzSd = "NA (reference)"
-    } else {
-        meanRtSd = sprintf("%.6f", mean(rtSd[[i]]))
-        meanMzSd = sprintf("%.6f", mean(mzSd[[i]]))
-    }
-    cat(paste0("    ", filename, "\t\t", nFeatures, "\t\t", meanRtSd, "\t", meanMzSd, "\n"))
-    cat(paste0("    ", filename, "\t\t", nFeatures, "\t\t", meanRtSd, "\t", meanMzSd, "\n"), file = LOG)
+    colnames(fullFeatures) = paste0(filename, "_", colnames(fullFeatures))
+    fullFeatures = cbind(meanMz, fullFeatures)
+    fullFeatures = fullFeatures[order(fullFeatures$meanMz), ]
+    outputFile = paste0(outDirectory, "/.", params$output_name, "_fully_aligned.feature")
+    nFeatures = dim(fullFeatures)[1]
+    cat(" ", nFeatures, "features are detected\n")
+    cat(" ", nFeatures, "features are detected\n", file = LOG)
+    write.table(fullFeatures, outputFile, sep = "\t", row.names = F, quote = F)
 }
+
+## New fully-matched features (formatting according to the discussion on 2019/11/19)
+if (length(files) > 1) {
+    fullFeatures = res$fullFeatures
+    fMz = round(apply(fullFeatures[, grep("mz", colnames(fullFeatures))], 1, mean, na.rm = T), 5) # Feature m/z (averaged over runs)
+    refColName = sub(".\\d.feature", "", basename(files[refNo]))
+    refColName = paste0(refColName, "_")
+} else {
+    fullFeatures = features[[1]]
+    fMz = fullFeatures[, grep("mz", colnames(fullFeatures))] # Feature m/z
+    refColName = ""
+}
+fNum = c(1:dim(fullFeatures)[1])
+fIon = NULL
+for (i in 1:dim(fullFeatures)[1]) {
+    ## Determination of the charge state
+    ##   Heuristic rules
+    ##   1. Prefer the charge state other than 0
+    ##   2. When multiple charge states have the same frequency over samples, choose the lower one
+    charges = fullFeatures[i, grep("_z", colnames(fullFeatures))]
+    charges = charges[!is.na(charges)]
+    charges = setdiff(as.numeric(charges), 0)
+    if (length(charges) == 0) {
+        charge = 1
+    } else {
+        temp = table(as.numeric(charges))
+        charge = as.numeric(names(temp)[temp == max(temp)])
+        if (length(charge) > 1) {
+            charge = charge[1]
+        }
+    }
+    if (params$mode == -1) {
+        if (charge > 1) {
+            fIon[i] = paste0("[M-", charge, "H]", charge, "-")
+        } else {
+            fIon[i] = "[M-H]-"
+        }
+    } else {
+        if (charge > 1) {
+            fIon[i] = paste0("[M+", charge, "H]", charge, "+")
+        } else {
+            fIon[i] = "[M+H]+"
+        }
+    }
+}
+fRT = round(fullFeatures[, which(colnames(fullFeatures) == paste0(refColName, "RT"))] / 60, 2) # Feature RT (from reference run), unit of minute, 2 decimal
+fMaxRT = fullFeatures[, which(colnames(fullFeatures) == paste0(refColName, "maxRT"))] # Feature max RT (from reference run)
+fMinRT = fullFeatures[, which(colnames(fullFeatures) == paste0(refColName, "minRT"))] # Feature min RT (from reference run)
+fWidth = round((fMaxRT - fMinRT) / 60, 2) # Feature width (maxRT - minRT of feature), unit of minute, 2 decimal
+fSNratio = fullFeatures[, which(colnames(fullFeatures) == paste0(refColName, "SN"))] # Feature S/N ratio (from reference run)
+if (length(files) > 1) {
+    fIntensities = fullFeatures[, grep("Intensity", colnames(fullFeatures))]
+} else {
+    fIntensities = data.frame("Feature_intensity" = fullFeatures[, grep("Intensity", colnames(fullFeatures))])
+}
+outDf = cbind("Feature_ion" = fIon, "Feature_m/z" = fMz, "Feature_RT"= fRT, "Feature_width" = fWidth, "Feature_SNratio" = fSNratio, fIntensities)
+outDf = outDf[order(outDf$`Feature_m/z`), ]
+fNum = c(1:dim(outDf)[1])
+outDf = cbind("Feature_num" = fNum, outDf)
+outputFile = paste0(outDirectory, "/", params$output_name, "_fully_aligned.feature")
+write.table(outDf, outputFile, sep = "\t", row.names = F, quote = F)
+
+endTime = Sys.time()
+elapsedTime = endTime - startTime
+elapsedTime = round(as.numeric(elapsedTime, units = "mins"), 4)
 cat("\n")
+cat(paste0("  Feature alignment takes ", elapsedTime, " minutes\n"))
 cat("\n", file = LOG)
-
-###################################################################
-## Identification of fully-aligned features for further analysis ##
-###################################################################
-cat("  Feature alignment\n")
-cat("  =================\n")
-cat("  Feature alignment\n", file = LOG)
-cat("  =================\n", file = LOG)
-matchedFeatures = list()
-for (i in 1:nFeatureFiles) {
-    if (i == refNo) {
-        matchedFeatures[[i]] = NA
-    } else {
-        matchedFeatures[[i]] = matchFeatures(calibratedFeatures[[refNo]], calibratedFeatures[[i]],
-                                             basename(args[refNo]), basename(args[i]),
-                                             rtSd[[i]], mzSd[[i]], params, LOG)
-    }
-}
-
-## Fully-, partially- and un-matched/aligned features
-res = findMatchedFeatures(matchedFeatures, calibratedFeatures, args)
-
-
-##############################
-## Processing quantity data ##
-##############################
-cat("  Quantity information\n")
-cat("  ====================\n")
-cat("  Quantity information\n", file = LOG)
-cat("  ====================\n", file = LOG)
-fullFeatures = res$fullFeatures
-fullFeatures = quantifyFeatures(fullFeatures, params, LOG)
-
-
-
+cat(paste0("  Feature alignment takes ", elapsedTime, " minutes\n"), file = LOG)
+close (LOG)

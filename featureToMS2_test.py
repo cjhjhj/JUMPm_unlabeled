@@ -4,15 +4,30 @@ import os, sys, re, pickle, utils, numpy as np, pandas as pd
 from pyteomics import mzxml
 from featureToMS2 import interConsolidation, intraConsolidation
 
-f = open('fully_aligned_features.pickle', 'rb')
-full = pickle.load(f)
-f.close()
+# f = open('fully_aligned_features.pickle', 'rb')
+# full = pickle.load(f)
+# f.close()
+# mzxmlFiles = [r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML",
+#               r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_2.mzXML",
+#               r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_3.mzXML"]
+# paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
+
+full = pd.read_csv("./IROA_IS_NEG/.IROA_IS_NEG_fully_aligned.feature", sep="\t", index_col=False)
+for col in full.columns:
+    if col.endswith("minMS1ScanNumber"):
+        full.rename({col: re.sub("minMS1ScanNumber", "minMS1", col)}, axis=1, inplace=True)
+    elif col.endswith("maxMS1ScanNumber"):
+        full.rename({col: re.sub("maxMS1ScanNumber", "maxMS1", col)}, axis=1, inplace=True)
+    elif col.endswith("Intensity"):
+        full.rename({col: re.sub("Intensity", "intensity", col)}, axis=1, inplace=True)
+    elif col.endswith("PercentageofTF"):
+        full.rename({col: re.sub("PercentageofTF", "PercentageTF", col)}, axis=1, inplace=True)
+full = full.to_records(index=False)  # Change pd.dataframe to np.recarray for internal computation
+
 mzxmlFiles = [r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML",
               r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_2.mzXML",
               r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_3.mzXML"]
 paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
-
-
 
 ######################################
 # Load parameters and initialization #

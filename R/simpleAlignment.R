@@ -77,22 +77,28 @@ loess.as = function(x, y, degree=1, criterion=c("aicc", "gcv"),
 }
 
 args = commandArgs(trailingOnly = TRUE)
-# When LOWESS is performed to RT (m/z),
-# x = reference RT (m/z) of matched features
-# y = compared RT (m/z) of matched features
-# xall = reference RT (m/z) of all features
-# yall = compared RT (m/z) of all features
-# u = reference m/z (RT) of matched features
-# v = reference m/z (RT) of matched features
+# args[1] = "../../Dev/JUMPm_unlabel_python/refRt.txt"
+# args[2] = "../../Dev/JUMPm_unlabel_python/compRt.txt"
+# args[3] = "../../Dev/JUMPm_unlabel_python/compRt_new.txt"
+rts = read.table(args[1], sep = "\t", row.names = NULL, stringsAsFactors = F, comment.char = "", check.names = F)
+rts = as.matrix(rts)
+rowInd = which(!is.na(rts[,2]))
+refRt = rts[rowInd, 2]
+compRt = rts[rowInd, 1]
+compRt_new = rts[, 1]
+x = as.numeric(compRt)
+y = as.numeric(compRt) - as.numeric(refRt) ## RT-shifts
 
-args[1] = "../u.txt"
-args[2] = "../v.txt"
+## Removal of outliers in y (i.e. RT-shift)
+pct = 0.2
+truncatedMean = mean(y[y >= quantile(y, pct / 2) & y <= quantile(y, (1 - pct / 2))])
+truncatedSd = sd(y[y >= quantile(y, pct / 2) & y <= quantile(y, (1 - pct / 2))])
+lL = truncatedMean - 3 * truncatedSd
+uL = truncatedMean + 3 * truncatedSd
+ind = which(y >= lL & y <= uL)
 
-x = read.table(args[1], sep = "\t", row.names = NULL, stringsAsFactors = F, comment.char = "", check.names = F)
-y = read.table(args[2], sep = "\t", row.names = NULL, stringsAsFactors = F, comment.char = "", check.names = F)
-
-# LOWESS modeling of RT
-x = as.numeric(x[, 1])
-y = as.numeric(y[, 1])
-mod = loess.as(x, y, degree = 1, criterion = "aicc", control = loess.control(surface = "direct"))
-# ynew = predict(mod, data.frame(x = xnew))
+mod = loess.as(x[ind], y[ind], degree = 1, criterion = "aicc",
+               control = loess.control(surface = "direct")) ## This curve represents RT-shifts as a function of comp$Rt
+compRt_new = as.numeric(compRt_new) - predict(mod, data.frame(x = as.numeric(compRt_new)))
+write.table(file = "alignment_result.txt", compRt_new, sep = "\t", row.names = F, col.names = F, quote = F)
+write.table(file = "alignment_residual.txt", abs(mod$residuals), sep = "\t", row.names = F, col.names = F, quote = F)
