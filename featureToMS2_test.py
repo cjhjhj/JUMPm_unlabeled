@@ -13,12 +13,17 @@ from featureToMS2 import interConsolidation, intraConsolidation
 # paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
 
 
-full = pd.read_csv("./IROA_IS_NEG/.IROA_IS_NEG_fully_aligned.feature", sep="\t", index_col=False)
+# full = pd.read_csv("./IROA_IS_NEG/.IROA_IS_NEG_fully_aligned.feature", sep="\t", index_col=False)
+full = pd.read_csv("/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/librarySearch/.test_fully_aligned.feature", sep = "\t", index_col = False)
 for col in full.columns:
     if col.endswith("minMS1ScanNumber"):
         full.rename({col: re.sub("minMS1ScanNumber", "minMS1", col)}, axis=1, inplace=True)
+    elif col.endswith("minMS1Scan#"):
+        full.rename({col: re.sub("minMS1Scan#", "minMS1", col)}, axis=1, inplace=True)
     elif col.endswith("maxMS1ScanNumber"):
         full.rename({col: re.sub("maxMS1ScanNumber", "maxMS1", col)}, axis=1, inplace=True)
+    elif col.endswith("maxMS1Scan#"):
+        full.rename({col: re.sub("maxMS1Scan#", "maxMS1", col)}, axis=1, inplace=True)
     elif col.endswith("Intensity"):
         full.rename({col: re.sub("Intensity", "intensity", col)}, axis=1, inplace=True)
     elif col.endswith("PercentageofTF"):
@@ -27,11 +32,13 @@ for col in full.columns:
 mzxmlFiles = [r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_1.mzXML",
               r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_2.mzXML",
               r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG_3.mzXML"]
-paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
+# paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
+paramFile = r"C:\Research\Projects\7Metabolomics\Dev\JUMPm_unlabel_python\librarySearch\jumpm.params"
+
+full = full.iloc[101:103]
+
+
 full = full.to_records(index=False)  # Change pd.dataframe to np.recarray for internal computation
-
-
-
 
 ######################################
 # Load parameters and initialization #
@@ -74,7 +81,7 @@ for file in mzxmlFiles:
                             (surveyNum <= subset["maxMS1"]) &
                             (subset["mz"] >= (precMz - tolIsolation)) &
                             (subset["mz"] <= (precMz + tolIsolation)) &
-                            (subset["PercentageTF"] <= pctTfThreshold))[0]
+                            (subset["PercentageTF"] < pctTfThreshold))[0]
             if len(fInd) > 0:
                 ppi = []
                 for i in range(len(fInd)):

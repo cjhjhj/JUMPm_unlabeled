@@ -8,10 +8,11 @@ from pyteomics import mzxml
 def intraConsolidation(ms2, scans, tol):
     # Sort MS2 spectra according to their total ion current (descending order)
     scans = scans.split(";")
-    tic = [sum(ms2[key]["intensity"]) for key in scans]
-    ind = np.argmax(tic)
-    spec = ms2[scans[ind]]  # MS2 spectrum with the highest total ion current
-    del scans[ind]
+    tic = np.array([sum(ms2[key]["intensity"]) for key in scans])
+    ind = (-tic).argsort()  # Sort "tic" in descending order
+    scans = [scans[i] for i in ind]
+    spec = ms2[scans[0]]  # MS2 spectrum with the highest total ion current
+    del scans[0]
     if len(scans) > 1:
         for i in range(len(scans)):
             p = ms2[scans[i]]
@@ -40,12 +41,23 @@ def interConsolidation(specs, tol):
     specs = [i for i in specs if i is not None]  # Skip "None"
     tic = [sum(s["intensity"]) for s in specs]
     if len(tic) > 1:
-        ind = np.argmax(tic)
-        spec = specs[ind]  # Reference MS2 spectrum for merging others for a feature
-        del specs[ind]
+        tic = np.array(tic)
+        ind = (-tic).argsort()  # Sort "tic" in descending order
+        specs = [specs[i] for i in ind]
+        spec = specs[0]
+        del specs[0]
     else:
         spec = specs[0]
         specs = []
+
+    # tic = [sum(s["intensity"]) for s in specs]
+    # if len(tic) > 1:
+    #     ind = np.argmax(tic)
+    #     spec = specs[ind]  # Reference MS2 spectrum for merging others for a feature
+    #     del specs[ind]
+    # else:
+    #     spec = specs[0]
+    #     specs = []
 
     if len(specs) > 0:
         for i in range(len(specs)):
