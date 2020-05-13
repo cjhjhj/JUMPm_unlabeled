@@ -35,7 +35,7 @@ mzxmlFiles = [r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\IROA_IS_NEG
 # paramFile = r"C:\Research\Projects\7Metabolomics\JUMPm\IROAsamples\jumpm_negative_desktop.params"
 paramFile = r"C:\Research\Projects\7Metabolomics\Dev\JUMPm_unlabel_python\librarySearch\jumpm.params"
 
-full = full.iloc[101:103]
+# full = full.iloc[689:691]
 
 
 full = full.to_records(index=False)  # Change pd.dataframe to np.recarray for internal computation

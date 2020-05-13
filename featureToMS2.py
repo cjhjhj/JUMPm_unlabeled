@@ -13,7 +13,7 @@ def intraConsolidation(ms2, scans, tol):
     scans = [scans[i] for i in ind]
     spec = ms2[scans[0]]  # MS2 spectrum with the highest total ion current
     del scans[0]
-    if len(scans) > 1:
+    if len(scans) > 0:
         for i in range(len(scans)):
             p = ms2[scans[i]]
             for j in range(len(spec["mz"])):
@@ -221,4 +221,8 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     # "specArray" is the list of (consolidated) MS2 spectra
     # specArray[i] is the MS2 spectrum corresponding to the i-th feature
     # If there's no MS2 spectrum, then specArray[i] is None
-    return specArray
+
+    # For I/O purpose, features and MS2 spectra are merged into a dataframe
+    df = pd.DataFrame.from_records(full)
+    df["MS2"] = specArray
+    return df, featureToScan

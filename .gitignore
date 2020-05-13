@@ -23,3 +23,5 @@ spec_R.txt
 __pycache__/featureAlignment.cpython-37.pyc
 __pycache__/featureToMS2.cpython-37.pyc
 __pycache__/utils.cpython-37.pyc
+__pycache__/
+testMS2/
