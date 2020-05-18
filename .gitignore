@@ -25,3 +25,7 @@ __pycache__/featureToMS2.cpython-37.pyc
 __pycache__/utils.cpython-37.pyc
 __pycache__/
 testMS2/
+fullFeatures_htan_IROA_c18_target.pickle
+.ipynb_checkpoints/featureAlignment-checkpoint.py
+.ipynb_checkpoints/featureToMS2-checkpoint.py
+.ipynb_checkpoints/librarySearch-checkpoint.py
