@@ -29,3 +29,17 @@ fullFeatures_htan_IROA_c18_target.pickle
 .ipynb_checkpoints/featureAlignment-checkpoint.py
 .ipynb_checkpoints/featureToMS2-checkpoint.py
 .ipynb_checkpoints/librarySearch-checkpoint.py
+35c03f91-6b6e-473a-b0d9-9ceab00923f7tempexecuteCommand.sh
+6b469b9f-d31d-44b1-b15d-07ee8daa9fb2tempexecuteCommand.sh
+bondenergies.txt
+ddb23cf6-2469-4894-9dfb-e2726fdf8255tempexecuteCommand.sh
+IROA_c18_target_db_search_result.txt
+metfrag.params
+metfrag_result.csv
+metfrag_result_no_precursor_mode.csv
+metfrag_result_precursor_mode_0.csv
+metfrag_result_precursor_mode_1.csv
+ms2.txt
+neutralLoss.csv
+.ipynb_checkpoints/featureDetection-checkpoint.py
+.ipynb_checkpoints/metfrag_result-checkpoint.csv
