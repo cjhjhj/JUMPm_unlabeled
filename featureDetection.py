@@ -401,8 +401,8 @@ def detectFeatures(inputFile, paramFile):
         ms1 = f[i]["num"][ind]
 
         # 7. minMS1 and maxMS1
-        minMs1 = min(f[i]["num"])
-        maxMs1 = max(f[i]["num"])
+        minMs1 = min(list(map(int, f[i]["num"])))
+        maxMs1 = max(list(map(int, f[i]["num"])))
 
         # 8. SNratio (signal-to-noise ratio of the feature)
         if ms1 in noise:

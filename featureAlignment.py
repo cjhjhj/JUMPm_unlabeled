@@ -646,6 +646,9 @@ def alignFeatures(fArray, featureFiles, paramFile):
     else:
         print("  Since a single feature is used, the feature alignment is skipped")
         fullFeatures = np.copy(fArray[0])  # Masked array to 2D numpy array
+        colNames = list(fullFeatures.dtype.names)
+        featureName = os.path.splitext(os.path.basename(featureFiles[0]))[0]
+        fullFeatures.dtype.names = [featureName + "_" + c for c in colNames]
         print()
 
         # Convert numpy structured arrays to pandas dataframe for sharing/storing

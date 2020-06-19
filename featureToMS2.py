@@ -112,8 +112,9 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     ######################################
     # Load parameters and initialization #
     ######################################
-    ppiThreshold = "max"  # Hard-coded
     params = utils.getParams(paramFile)
+    # ppiThreshold = "max"  # Hard-coded
+    ppiThreshold = params["ppi_threshold_of_features"]
     pctTfThreshold = float(params["max_percentage_RT_range"])
     tolIsolation = float(params["isolation_window"])
     tolPrecursor = float(params["tol_precursor"])
@@ -170,6 +171,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                         fInd = np.array([fInd[np.argmax(ppi)]])
                     else:
                         # ppiThreshold should be a numeric value
+                        ppiThreshold = float(ppiThreshold)
                         fInd = fInd[np.where(ppi > ppiThreshold)]
                     if len(fInd) == 0:  # Last check of candidate feature indexes
                         continue
@@ -185,7 +187,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                             else:
                                 featureToScan[fInd[i], m] += ";" + spec["num"]
 
-        print("  Merging MS2 spectra within a run for each feature")
+        print("  Looking for MS2 spectra for each feature within a run")
         progress = utils.progressBar(nFeatures)
         for i in range(nFeatures):
             progress.increment()
@@ -194,7 +196,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                 featureToSpec[i, m] = spec
         print()
 
-    print("  Merging MS2 spectra between runs for each feature")
+    print("  Merging MS2 spectra for each feature (between runs, if there are multiple runs)")
     specArray = np.array([])
     progress = utils.progressBar(nFeatures)
     for i in range(nFeatures):

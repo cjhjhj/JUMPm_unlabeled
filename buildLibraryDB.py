@@ -3,7 +3,7 @@
 import glob, os, sqlite3, utils, numpy as np, pandas as pd
 
 # Read a text file containing the information of metabolomes
-txtFile = r"C:\Research\Projects\7Metabolomics\Library\Metabolome_library_v3.1.1.txt"
+txtFile = r"/Research/Projects/7Metabolomics/Library/Metabolome_library_v3.1.1.txt"
 df = pd.read_csv(txtFile, sep = "\t", engine = "python")
 
 # Open a sqlite database and create tables
@@ -24,7 +24,7 @@ df.to_sql("library", conn, if_exists = "replace")
 
 # Individual MS2 spectrum
 pathArray = df["c18p_linkms2"]
-files = glob.glob(r"C:\Research\Projects\7Metabolomics\Library\c18p\*.MS2")
+files = glob.glob(r"/Research/Projects/7Metabolomics/Library/c18p/*.MS2")
 progress = utils.progressBar(len(files))
 for i in range(len(files)):
     progress.increment()
@@ -37,7 +37,7 @@ for i in range(len(files)):
 
 # Individual MS2 spectrum
 pathArray = df["hilicn_linkms2"]
-files = glob.glob(r"C:\Research\Projects\7Metabolomics\Library\hilicn\*.MS2")
+files = glob.glob(r"/Research/Projects/7Metabolomics/Library/hilicn/*.MS2")
 progress = utils.progressBar(len(files))
 for i in range(len(files)):
     progress.increment()
