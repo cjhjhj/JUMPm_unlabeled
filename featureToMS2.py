@@ -223,6 +223,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     # "specArray" is the list of (consolidated) MS2 spectra
     # specArray[i] is the MS2 spectrum corresponding to the i-th feature
     # If there's no MS2 spectrum, then specArray[i] is None
+    print()
 
     # For I/O purpose, features and MS2 spectra are merged into a dataframe
     df = pd.DataFrame.from_records(full)

@@ -14,7 +14,8 @@ def detectPeaks(spec, params):
     else:
         print("Please set the proper 'data_acquisition_mode' parameter")
         sys.exit("")
-    intensityThreshold = 0  # May come from a parameter file
+    # intensityThreshold = 0  # May come from a parameter file
+    intensityThreshold = float(params["min_peak_intensity"])
 
     # m/z and intensity arrays from a spectrum object
     mzArray = spec["m/z array"]

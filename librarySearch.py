@@ -220,10 +220,15 @@ def searchLibrary(full, libFile, paramFile):
                 featSpec = fMS2[i]
                 sqlQuery = r"select * from " + "'''" + library[condition + "_linkms2"][j] + "'''"
                 libSpec = pd.read_sql_query(sqlQuery, conn).to_dict(orient="list")
-                simMS2 = 1 - calcMS2Similarity(featSpec, libSpec)   # p-value-like score
+                pMS2 = 1 - calcMS2Similarity(featSpec, libSpec)   # p-value-like score
+                pMS2 = max(np.finfo(float).eps, pMS2)
 
                 # Calculate the (similarity?) score based on RT-difference
-                simRT = ecdfRT(abs(fMeanRt[i] - libRt[j]))  # Also, p-value-like score
-                print(i, j, simMS2, simRT)
+                pRT = ecdfRT(abs(fMeanRt[i] - libRt[j]))  # Also, p-value-like score
+                pRT = max(np.finfo(float).eps, pRT)
+
+                # Harmonic mean of two p(like)-value
+                p = 1 / (0.5 / pMS2 + 0.5 / pRT)    # Harmonic mean with equal weights
+                print(i, j, pMS2, pRT, p)
     conn.close()
     print()
