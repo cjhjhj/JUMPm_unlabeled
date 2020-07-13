@@ -2,9 +2,24 @@
 
 import glob, os, sqlite3, utils, numpy as np, pandas as pd
 
+# Path information
+libPath = r"/Research/Projects/7Metabolomics/library/ours/"
+
 # Read a text file containing the information of metabolomes
-txtFile = r"/Research/Projects/7Metabolomics/Library/Metabolome_library_v3.1.1.txt"
+txtFile = libPath + r"Metabolome_library_v3.1.1.txt"
 df = pd.read_csv(txtFile, sep = "\t", engine = "python")
+df["type"] = pd.Series(["target"] * df.shape[0])
+
+# Addition of decoys (by adding 3 * proton to the neutral mass)
+proton = 1.007276466812
+dfDecoy = df.copy()
+for i in range(dfDecoy.shape[0]):
+    dfDecoy.loc[i, "idstjude"] = dfDecoy.loc[i, "idstjude"] + "_decoy"
+    dfDecoy.loc[i, "monoisotopic_mass"] += 3 * proton # This way prevents 'SettingwithCopyWarning'
+    dfDecoy.loc[i, "type"] = "decoy"
+
+# Merge target and decoy data frames into one
+df = df.append(dfDecoy, ignore_index = True)
 
 # Open a sqlite database and create tables
 conn = sqlite3.connect("library.db")
@@ -24,7 +39,8 @@ df.to_sql("library", conn, if_exists = "replace")
 
 # Individual MS2 spectrum
 pathArray = df["c18p_linkms2"]
-files = glob.glob(r"/Research/Projects/7Metabolomics/Library/c18p/*.MS2")
+filePath = libPath + r"/c18p/*.MS2"
+files = glob.glob(filePath)
 progress = utils.progressBar(len(files))
 for i in range(len(files)):
     progress.increment()
@@ -37,7 +53,8 @@ for i in range(len(files)):
 
 # Individual MS2 spectrum
 pathArray = df["hilicn_linkms2"]
-files = glob.glob(r"/Research/Projects/7Metabolomics/Library/hilicn/*.MS2")
+filePath = libPath + r"/hilicn/*.MS2"
+files = glob.glob(filePath)
 progress = utils.progressBar(len(files))
 for i in range(len(files)):
     progress.increment()

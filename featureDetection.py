@@ -157,6 +157,86 @@ def getClosest(spec, mz, tol):
         return 0, None
 
 
+def dechargeFeatures(features):
+    # features = features of np.recarray format
+    features = np.sort(features, order = "intensity")[::-1]  # Sort features in descending order of intensity
+    delC = 1.00335  # Mass difference between 13C and 12C
+    tolPpm = 10  # Tolerance for decharging
+    maxCharge = 4
+    for i in range(features.shape[0]):
+        mz = features["mz"][i]
+        intensity = features["intensity"][i]
+        lL = mz - mz * tolPpm / 1e6
+        uL = delC + mz + mz * tolPpm / 1e6
+        scan = features["MS1"][i]
+        ind = np.where((features["MS1"] > (scan - 50)) & (features["MS1"] < (scan + 50)))[0]
+        charge = 0
+        for j in ind:
+            if j == i:
+                continue
+            else:
+                mz_j = features["mz"][j]
+                intensity_j = features["intensity"][j]
+                # A presumable isotopic peak intensity should be greater than 20% of feature intensity (to prevent the inclusion of small/noisy peaks)
+                # and smaller than 500% (i.e. inverse of 20%) of feature intensity (to prevent that a monoisotopic peak is merged for decharging of a small/noisy peak)
+                # if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (5 * intensity):
+                if lL <= mz_j < uL:
+                    # Check the overlap (in RT-dimension) between two features
+                    min1 = features["minRT"][i]
+                    max1 = features["maxRT"][i]
+                    min2 = features["minRT"][j]
+                    max2 = features["maxRT"][j]
+                    minRange = min(max1 - min1, max2 - min2)
+                    rtOverlap = findRtOverlap(min1, max1, min2, max2)
+                    if rtOverlap / minRange < 0.5:
+                        continue
+
+                    # Look for potential isotopic peak and decharge
+                    diff = np.around(1 / abs(mz - mz_j)).astype(int)
+                    if diff == 0 or diff > maxCharge:
+                        continue
+                    dev = abs(abs(mz - mz_j) - (delC / diff))
+                    if dev > (mz * tolPpm / 1e6):
+                        continue
+                    else:
+                        charge = diff
+                        if intensity > intensity_j:
+                            features["isotope"][j] = 1
+                        break
+                else:
+                    continue
+        features["z"][i] = charge
+
+    # Remove the features from isotopic peaks
+    ind = np.where(features["isotope"] == 1)[0]
+    features = np.delete(features, ind)
+
+    return features
+
+
+def findRtOverlap(min1, max1, min2, max2):
+    if min1 < min2:
+        # Examples
+        # |----------------|    range of input1
+        #       |----|          range of input2
+        #          |----------| range of input2
+        if max1 < max2:
+            overlap = max1 - min2
+        else:
+            overlap = max2 - min2
+    else:
+        # Examples
+        #      |--------|       range of input1
+        # |----------|          range of input2
+        # |-----------------|   range of input2
+        if max1 < max2:
+            overlap = max1 - min1
+        else:
+            overlap = max2 - min1
+
+    return overlap
+
+
 def detectFeatures(inputFile, paramFile):
     ##############
     # Parameters #
@@ -179,11 +259,11 @@ def detectFeatures(inputFile, paramFile):
     oldMinInd = -1
     oldMaxInd = -1
 
+    ############################
+    # Get MS1 scan information #
+    ############################
     ms = []
     with reader:
-        ############################
-        # Get MS1 scan information #
-        ############################
         msCount = 0
         filename = os.path.basename(inputFile)
         print("  Extraction of MS1 spectra from %s" % filename)
@@ -327,9 +407,9 @@ def detectFeatures(inputFile, paramFile):
     # Remove empty features
     f = [i for i in f if i is not None]
 
-    ##################
-    # Filtering step #
-    ##################
+    #################################
+    # Filtering features (3D-peaks) #
+    #################################
     # A feature may contain multiple peaks from one scan
     # In this case, one with the largest intensity is chosen
     gMinRt, gMaxRt = 0, 0  # Global minimum and maximum RT over all features
@@ -441,48 +521,12 @@ def detectFeatures(inputFile, paramFile):
     ##########################
     # Decharging of features #
     ##########################
-    features = np.sort(features, order = "intensity")[::-1]  # Sort features in descending order of intensity
-    delC = 1.00335  # Mass difference between 13C and 12C
-    tolPpm = 10  # Tolerance for decharging
-    maxCharge = 6
-    for i in range(features.shape[0]):
-        mz = features["mz"][i]
-        intensity = features["intensity"][i]
-        lL = mz - mz * tolPpm / 1e6
-        uL = delC + mz + mz * tolPpm / 1e6
-        scan = features["MS1"][i]
-        ind = np.where((features["MS1"] > (scan - 50)) & (features["MS1"] < (scan + 50)))[0]
-        charge = 0
-        for j in ind:
-            if j == i:
-                continue
-            else:
-                mz_j = features["mz"][j]
-                intensity_j = features["intensity"][j]
-                # A presumable isotopic peak intensity should be greater than 20% of feature intensity (to prevent the inclusion of small/noisy peaks)
-                # and smaller than 500% (i.e. inverse of 20%) of feature intensity (to prevent that a monoisotopic peak is merged for decharging of a small/noisy peak)
-                # if lL <= mz_j < uL and (0.2 * intensity) <= intensity_j < (5 * intensity):
-                if lL <= mz_j < uL:
-                    # Look for potential isotopic peak and decharge
-                    diff = np.around(1 / abs(mz - mz_j)).astype(int)
-                    if diff == 0 or diff > maxCharge:
-                        continue
-                    dev = abs(abs(mz - mz_j) - (delC / diff))
-                    if dev > (mz * tolPpm / 1e6):
-                        continue
-                    else:
-                        charge = diff
-                        if intensity > intensity_j:
-                            features["isotope"][j] = 1
-                        break
-                else:
-                    continue
-        features["z"][i] = charge
+    features = dechargeFeatures(features)
+    print()
 
-    # Remove the features from isotopic peaks
-    ind = np.where(features["isotope"] == 1)[0]
-    features = np.delete(features, ind)
-    print ()
+    ############################################
+    # Convert the features to pandas dataframe #
+    ############################################
     df = pd.DataFrame(features)
     df = df.drop(columns = ["isotope"])    # "isotope" column was internally used, and no need to be transferred
     return df  # Pandas DataFrame

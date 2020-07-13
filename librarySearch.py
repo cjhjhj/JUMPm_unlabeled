@@ -109,14 +109,14 @@ def searchLibrary(full, libFile, paramFile):
         sys.exit("Library file cannot be found or cannot be loaded")
 
     command = "select * from library"   # Load a master table containing entities of library compounds
-    library = pd.read_sql_query(command, conn)
-    nCompounds = library.shape[0]
-    library = library.replace("na", np.nan)  # If there's "na", replace it with np.nan
-    library.columns = library.columns.str.replace(" ", "")
-    libRt = library[condition + "_rt"].to_numpy(dtype="float")
+    libTable = pd.read_sql_query(command, conn)
+    nCompounds = libTable.shape[0]
+    libTable = libTable.replace("na", np.nan)  # If there's "na", replace it with np.nan
+    libTable.columns = libTable.columns.str.replace(" ", "")
+    libRt = libTable[condition + "_rt"].to_numpy(dtype="float")
     libRt = [rt * 60 for rt in libRt] # Note that library RT is using "minute"
-    libM = library["monoisotopic_mass"].to_numpy(dtype="float")  # This "monoisotopic mass" is a neutral mass
-    libZ = library[condition + "_charge"].to_numpy(dtype="float")
+    libM = libTable["monoisotopic_mass"].to_numpy(dtype="float")  # This "monoisotopic mass" is a neutral mass
+    libZ = libTable[condition + "_charge"].to_numpy(dtype="float")
     if params["mode"] == "1":
         libMz = (libM + libZ * proton) / libZ
     elif params["mode"] == "-1":
@@ -218,7 +218,7 @@ def searchLibrary(full, libFile, paramFile):
             if mzDiff < matchMzTol:
                 # Calculate the similarity score between feature and library MS2 spectra
                 featSpec = fMS2[i]
-                sqlQuery = r"select * from " + "'''" + library[condition + "_linkms2"][j] + "'''"
+                sqlQuery = r"select * from " + "'''" + libTable[condition + "_linkms2"][j] + "'''"
                 libSpec = pd.read_sql_query(sqlQuery, conn).to_dict(orient="list")
                 pMS2 = 1 - calcMS2Similarity(featSpec, libSpec)   # p-value-like score
                 pMS2 = max(np.finfo(float).eps, pMS2)

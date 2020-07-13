@@ -5,15 +5,16 @@
 #####################################
 ## Determination of search methods ##
 #####################################
-database_search = 1    # 0 = do not search a database, 1 = search a database (database should be specified)
-library_search = 0     # 0 = do not search a library,  1 = search a library  (library should be specified)
+database_search = 0    # 0 = do not search a database, 1 = search a database (database should be specified)
+library_search = 1     # 0 = do not search a library,  1 = search a library  (library should be specified)
 
 ########################################################
 ## Parameters for search methods and output directory ##
 ########################################################
 database = HMDB,YMDB   # database type: PUBCHEM, YMDB, HMDB (use "," to combine multiple databases if you want to search a combined database)
-library = /home/jcho/dev/JUMPm/library/Metabolome_library_v0.1.4.txt        # path of .txt file containing library compound information                       
-output_name = IROA_IS_NEG     # Used for unlabeled data analysis. Prefix "align_" will be automatically added
+#library = /home/jcho/dev/JUMPm/library/Metabolome_library_v0.1.4.txt        # path of .txt file containing library compound information                       
+library = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt
+output_name = IROA_C18_target     # Used for unlabeled data analysis. Prefix "align_" will be automatically added
 
 mass_formula_database = /Research/Projects/7Metabolomics/JUMPm/database/MASS_FORMULA_DB      # mass formula database   
 structure_database = /Research/Projects/7Metabolomics/JUMPm/database/STRUCTURE_DB            # structure database
@@ -22,9 +23,9 @@ formula_mass_tolerance_searching = 10                                      # mas
 ####################################
 ## Parameters for data properties ##
 ####################################
-LC_column = HILIC      # type of LC column, e.g. HILIC, C18, C4, etc.
-mode = -1              # 1 = positive mode, -1 = negative mode
-adduct = 1             # 0 = disable adduct detection, 1 = enable
+LC_column = C18       # type of LC column, e.g. HILIC, C18, C4, etc.
+mode = 1              # 1 = positive mode, -1 = negative mode
+adduct = 1            # 0 = disable adduct detection, 1 = enable
 
 ###############################################
 ## Whether skip the feature detection or not ##
@@ -51,13 +52,14 @@ deisotope_ppm = 10               # intrascan isotopic tolerance for decharging
 signal_noise_ratio = 10          # fold of the minimum signal noise ratio
 max_percentage_RT_range = 100    # threshold maximum percentage of the range of retention time of a peak
 min_peak_intensity = 10000       # threshold of a peak intensity
-skipping_scans = 3               # number of skipping scans during 3D formation 
+skipping_scans = 10               # number of skipping scans during 3D formation 
 mass_tolerance_peak_matching = 3 # mass tolerance for peak matching during 3D formation
 
 ###########################################################
 ## Parameters for feature alignment (for advanced users) ##
 ###########################################################
-reference_feature = 0            # 0 = reference feature is automatically chosen,
+reference_feature = 1            # 0 = reference run is chosen based on intensity-level,
+                                 # 1 = reference run is chosen based on the number of features
                                  # otherwise put the absolute path of a feature file to be used as a reference
 tol_initial = 20                 # initial m/z-tolerance for the global calibration (default = 20 ppm)
 sd_width = 5                     # SD-width for RT- and m/z-tolerances 
@@ -75,6 +77,7 @@ pct_full_alignment = 100         # percentage of samples are grouped into a feat
 #############################################################################
 ## Parameters for processing MS2 spectra for features (for advanced users) ##
 #############################################################################
+ppi_threshold_of_features = 0    # PPI (percentage of precursor ion) threshold for assigning each MS2 spectrum to feature(s)
 tol_precursor = 10               # PPM tolerance for finding a MS1 peak corresponding to a feature
 tol_intra_ms2_consolidation = 10 # PPM tolerance for merging MS2 spectra within a run
 tol_inter_ms2_consolidation = 20 # PPM tolerance for merging MS2 spectra between runs

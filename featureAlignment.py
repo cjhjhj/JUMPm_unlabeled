@@ -579,7 +579,7 @@ def alignFeatures(fArray, featureFiles, paramFile):
         # Selection of a reference sample #
         ###################################
         if params["reference_feature"] == "0":
-            # A sample with the largest median of top 100 intensities is set to a reference run
+            # A run with the largest median of top 100 intensities is set to a reference run
             refNo = 0
             refIntensity = 0
             for i in range(nFiles):
@@ -587,6 +587,15 @@ def alignFeatures(fArray, featureFiles, paramFile):
                 if tmpIntensity >= refIntensity:
                     refNo = i
                     refIntensity = tmpIntensity
+        elif params["reference_feature"] == "1":
+            # A run with the most number of features is set to a reference run
+            refNo = 0
+            refN = 0
+            for i in range(nFiles):
+                tmpN = len(fArray[i])
+                if tmpN >= refN:
+                    refNo = i
+                    refN = tmpN
         else:
             try:
                 refNo = featureFiles.index(params["reference_feature"])
