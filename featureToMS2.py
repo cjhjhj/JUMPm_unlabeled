@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, re, pickle, time, utils, numpy as np, pandas as pd
+import os, sys, re, time, shutil, utils, numpy as np, pandas as pd
 from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
 
@@ -20,12 +20,15 @@ def intraConsolidation(ms2, scans, tol):
                 if len(p["mz"]) == 0:
                     break
                 mz = spec["mz"][j]
+                intensity = spec["intensity"][j]
                 lL = mz - mz * tol / 1e6
                 uL = mz + mz * tol / 1e6
                 ind = np.where((p["mz"] >= lL) & (p["mz"] <= uL))[0]
                 if len(ind) > 0:
                     ind = ind[np.argmax(p["intensity"][ind])]
-                    spec["intensity"][j] += p["intensity"][ind]
+                    spec["mz"][j] = (mz * intensity + p["mz"][ind] * p["intensity"][ind]) \
+                                    / (intensity + p["intensity"][ind])  # New m/z = weighted average
+                    spec["intensity"][j] += p["intensity"][ind] # New intensity = sum of intensities
                     p["mz"] = np.delete(p["mz"], ind)
                     p["intensity"] = np.delete(p["intensity"], ind)
             spec["mz"] = np.append(spec["mz"], p["mz"])
@@ -66,12 +69,15 @@ def interConsolidation(specs, tol):
                 if len(p["mz"]) == 0:
                     break
                 mz = spec["mz"][j]
+                intensity = spec["intensity"][j]
                 lL = mz - mz * tol / 1e6
                 uL = mz + mz * tol / 1e6
                 ind = np.where((p["mz"] >= lL) & (p["mz"] <= uL))[0]
                 if len(ind) > 0:
                     ind = ind[np.argmax(p["intensity"][ind])]
-                    spec["intensity"][j] += p["intensity"][ind]
+                    spec["mz"][j] = (mz * intensity + p["mz"][ind] * p["intensity"][ind]) \
+                                    / (intensity + p["intensity"][ind])  # New m/z = weighted average
+                    spec["intensity"][j] += p["intensity"][ind]  # New intensity = sum of intensities
                     p["mz"] = np.delete(p["mz"], ind)
                     p["intensity"] = np.delete(p["intensity"], ind)
             spec["mz"] = np.append(spec["mz"], p["mz"])
@@ -107,7 +113,8 @@ def interConsolidation(specs, tol):
 
 def ms2ForFeatures(full, mzxmlFiles, paramFile):
     print("  Identification of MS2 spectra for the features")
-    full = full.to_records(index=False)  # Change pd.dataframe to np.recarray for internal computation
+    print("  ==============================================")
+    full = full.to_records(index = False)  # Change pd.DataFrame to np.RecArray for internal computation (speed issue)
 
     ######################################
     # Load parameters and initialization #
@@ -137,6 +144,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
         minScan, maxScan = int(min(subset["minMS1"])), int(max(subset["maxMS1"]))
         progress = utils.progressBar(maxScan - minScan + 1)
         print("  %s is being processed" % os.path.basename(file))
+        print("  Looking for MS2 scan(s) responsible for each feature")
         for i in range(minScan, maxScan + 1):
             progress.increment()
             spec = reader[str(i)]
@@ -145,7 +153,17 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                 surveyNum = i
             elif msLevel == 2:
                 # Find MS2 scans which satisfy the following conditions
-                precMz = spec["precursorMz"][0]["precursorMz"]
+
+                # From the discussion around June 2020,
+                # 1. In ReAdW-derived mzXML files, precursor m/z values are in two tags: "precursorMz" and "filterLine"
+                # 2. Through Haiyan's manual inspection, the real precursor m/z value is closer to one in "filterLine" tag
+                # 3. So, in this script, precursor m/z of MS2 scan is obtained from "filterLine" tag
+                # 4. Note that it may be specific to ReAdW-derived mzXML files since MSConvert-derived mzXML files do not have "filterLine" tag
+                # 4.1. In this case, maybe the use of mzML (instead of mzXML) would be a solution (to-do later)
+
+                # precMz = spec["precursorMz"][0]["precursorMz"]  # Precursor m/z from "precursorMz" tag
+                p = re.search("([0-9.]+)\\@", spec["filterLine"])
+                precMz = float(p.group(1))
                 survey = reader[str(surveyNum)]
                 fInd = np.where((surveyNum >= subset["minMS1"]) &
                                 (surveyNum <= subset["maxMS1"]) &
@@ -187,16 +205,16 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                             else:
                                 featureToScan[fInd[i], m] += ";" + spec["num"]
 
-        print("  Looking for MS2 spectra for each feature within a run")
+        print("  Merging MS2 spectra for each feature within a run (it may take a while)")
         progress = utils.progressBar(nFeatures)
         for i in range(nFeatures):
             progress.increment()
             if featureToScan[i, m] is not None:
                 spec = intraConsolidation(ms2Dict, featureToScan[i, m], tolIntraMS2Consolidation)
                 featureToSpec[i, m] = spec
-        print()
 
-    print("  Merging MS2 spectra for each feature (between runs, if there are multiple runs)")
+    print("  Merging MS2 spectra for each feature between runs when there are multiple runs")
+    print("  Simplification of MS2 spectrum for each feature by retaining the most strongest 100 peaks")
     specArray = np.array([])
     progress = utils.progressBar(nFeatures)
     for i in range(nFeatures):
@@ -204,28 +222,12 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
         if np.sum(featureToSpec[i] == None) == nFiles:
             specArray = np.append(specArray, None)
         else:
-            # Heuristic charge determination across runs
-            # 1. Charge state other than 0
-            # 2. More frequent charge state
-            # 3. If the same frequency, choose the lower one
-
-            colNames = [col for col in full.dtype.names if col.endswith("_z")]
-            charges = [c for c in full[colNames][i] if c > 0]
-            if len(charges) == 0:
-                charge = 1
-            else:
-                charge = max(set(charges), key=charges.count)
-
             spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
-            spec["charge"] = charge
             specArray = np.append(specArray, spec)
 
     # "specArray" is the list of (consolidated) MS2 spectra
     # specArray[i] is the MS2 spectrum corresponding to the i-th feature
     # If there's no MS2 spectrum, then specArray[i] is None
-    print()
+    df = utils.generateSummarizedFeatureFile(nFeatures, full, specArray, params)
 
-    # For I/O purpose, features and MS2 spectra are merged into a dataframe
-    df = pd.DataFrame.from_records(full)
-    df["MS2"] = specArray
     return df, featureToScan

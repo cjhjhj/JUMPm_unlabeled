@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, re, pickle, utils, numpy as np, pandas as pd
+import os, sys, glob, utils, numpy as np, pandas as pd
 from pyteomics import mzxml
 from numpy.lib.recfunctions import append_fields
 
@@ -265,8 +265,8 @@ def detectFeatures(inputFile, paramFile):
     ms = []
     with reader:
         msCount = 0
-        filename = os.path.basename(inputFile)
-        print("  Extraction of MS1 spectra from %s" % filename)
+        # filename = os.path.basename(inputFile)
+        # print("  Extraction of MS1 spectra from %s" % filename)
         for spec in reader:
             msLevel = int(spec["msLevel"])
             scanNum = int(spec["num"])
@@ -275,12 +275,13 @@ def detectFeatures(inputFile, paramFile):
                 msCount += 1
             elif scanNum > lastScan:
                 break
-        print("  Done")
+        # print("  Done")
 
     ################################
     # Feature (3D-peak) generation #
     ################################
-    print("  Feature detection ")
+    filename = os.path.basename(inputFile)
+    print("  Feature detection from %s" % filename)
     progress = utils.progressBar(msCount)
     for i in range(msCount):
         progress.increment()
@@ -522,11 +523,36 @@ def detectFeatures(inputFile, paramFile):
     # Decharging of features #
     ##########################
     features = dechargeFeatures(features)
-    print()
+    # print()
 
     ############################################
     # Convert the features to pandas dataframe #
+    # Write features to a file                 #
     ############################################
     df = pd.DataFrame(features)
     df = df.drop(columns = ["isotope"])    # "isotope" column was internally used, and no need to be transferred
+
+    # Create a subdirectory and save features to a file
+    baseFilename = os.path.splitext(os.path.basename(filename))[0]  # i.e. filename without extension
+    featureDirectory = os.path.join(os.getcwd(), baseFilename)
+    if not os.path.exists(featureDirectory):
+        os.mkdir(featureDirectory)
+
+    # # Increment the number of a feature file
+    # if len(glob.glob(os.path.join(featureDirectory, baseFilename + ".*.feature"))) == 0:
+    #     featureFilename = os.path.splitext(os.path.basename(filename))[0] + ".1.feature"
+    # else:
+    #     oldNo = 0
+    #     for f in glob.glob(os.path.join(featureDirectory, baseFilename + ".*.feature")):
+    #         oldNo = max(oldNo, int(os.path.basename(f).split(".")[-2]))
+    #     featureFilename = baseFilename + "." + str(int(oldNo) + 1) + ".feature"
+    # featureFilename = os.path.join(featureDirectory, featureFilename)
+
+    # Simply overwrite any existing feature file
+    # Individual feature file still needs to be located in an input file-specific location
+    # since the feature file can be directly used later
+    featureFilename = baseFilename + ".feature"
+    featureFilename = os.path.join(featureDirectory, featureFilename)
+    df.to_csv(featureFilename, index = False, sep = "\t")
+
     return df  # Pandas DataFrame

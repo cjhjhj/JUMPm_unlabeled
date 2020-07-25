@@ -461,7 +461,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             # indArray[i, j] = -1 means that there's no feature matched to i-th reference feature in j-th run
             rowInd = np.nonzero(np.in1d(indArray[:, refNo], refInd))[0]
             indArray[rowInd, i] = compInd
-            print("    %d features are aligned between runs" % len(rowInd))
+            print("  %d features are aligned between runs" % len(rowInd))
     print()
 
     # Indexes of fully- and partially-aligned features
@@ -469,7 +469,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     partialInd = []
     colNames = list(fArray[0].dtype.names)
     for i in range(n):
-        fArray[i].dtype.names = [fNames[i] + "_" + c for c in colNames]
+        fArray[i].dtype.names = [os.path.splitext(fNames[i])[0] + "_" + c for c in colNames]
         if i != refNo:
             fullInd = np.intersect1d(fullInd, np.where(indArray[:, i] >= 0)[0])
             partialInd = np.union1d(partialInd, np.where(indArray[:, i] >= 0)[0])
@@ -477,6 +477,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     partialInd = partialInd.astype(int)
 
     # Fully-aligned features
+    full = None
     for i in range(n):
         full_i = fArray[i][indArray[fullInd, i]]
         # full_i.dtype.names = [fNames[i] + "_" + c for c in full_i.dtype.names]
@@ -486,6 +487,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             full = merge_arrays((full, full_i), asrecarray=True, flatten=True)
 
     # Partially-aligned features
+    partial = None
     for i in range(len(partialInd)):
         for j in range(n):
             colInd = indArray[partialInd[i], j]
@@ -521,8 +523,8 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     # Alignment summary
     print("  Alignment/match summary")
     print("  =======================")
-    print("    After alignment/feature matching, fully-, partially- and un-aligned features are as follows")
-    print("    Filename\t\tfully-aligned\tpartially-aligned\tun-aligned")
+    print("  After alignment/feature matching, fully-, partially- and un-aligned features are as follows")
+    print("  Filename\t\tfully-aligned\tpartially-aligned\tun-aligned")
     nFull = len(fullInd)
     for i in range(n):
         if i == refNo:
@@ -530,7 +532,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
         else:
             nPartial = np.sum(indArray[:, i] >= 0) - len(fullInd)
         nUn = unaligned[i].shape[0]
-        print("    %s\t\t%d\t%d\t%d" % (fNames[i], nFull, nPartial, nUn))
+        print("  %s\t\t%d\t%d\t%d" % (fNames[i], nFull, nPartial, nUn))
 
     # Depending on the parameter, "pct_full_alignment", some partially-aligned features can be included in fully-aligned ones
     pctFullAlignment = float(params["pct_full_alignment"])
@@ -544,17 +546,16 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
         partial = stack_arrays((partial, line), asrecarray=True, usemask=False)
         full = stack_arrays((full, partial[rowInd]), asrecarray=True, usemask=False)
         partial = np.delete(partial, rowInd, axis=0)
-        print(
-            "    According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(
-                rowInd))
+        print("  According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(
+            rowInd))
     else:
-        print("    According to the parameter setting, no feature is added to the set of fully-aligned ones")
+        print("  According to the parameter setting, no feature is added to the set of fully-aligned ones")
 
     return full, partial, unaligned
 
 
-def alignFeatures(fArray, featureFiles, paramFile):
-    nFiles = len(featureFiles)
+def alignFeatures(fArray, xmlFiles, paramFile):
+    nFiles = len(xmlFiles)
 
     # Pandas dataframe to numpy structured array for internal computation
     for i in range(nFiles):
@@ -565,7 +566,7 @@ def alignFeatures(fArray, featureFiles, paramFile):
     ###################
     params = utils.getParams(paramFile)
     # Features derived from feature files are stored in fArray. For example,
-    # featureFiles = [file1, file2, file3]
+    # xmlFiles = [file1, file2, file3]
     # fArray[0] = features from file1 (which has column names like 'index', 'mz', etc.)
     # fArray[1] = features from file2
     # ...
@@ -598,10 +599,10 @@ def alignFeatures(fArray, featureFiles, paramFile):
                     refN = tmpN
         else:
             try:
-                refNo = featureFiles.index(params["reference_feature"])
+                refNo = xmlFiles.index(params["reference_feature"])
             except:
                 sys.exit("  'reference_feature' parameter should be correctly specified")
-        print("  %s is chosen as the reference run" % os.path.basename(featureFiles[refNo]))
+        print("  %s is chosen as the reference run" % os.path.basename(xmlFiles[refNo]))
 
         ############################################################
         # Calibration of features against those in a reference run #
@@ -609,7 +610,7 @@ def alignFeatures(fArray, featureFiles, paramFile):
         rtSdArray, mzSdArray = [], []
         featureNames = []
         for i in range(nFiles):
-            featureName = os.path.basename(featureFiles[i])
+            featureName = os.path.basename(xmlFiles[i])
             featureNames.append(featureName)
             if i != refNo:
                 print("  " + featureName + " is being aligned against the reference run (it may take a while)")
@@ -621,6 +622,7 @@ def alignFeatures(fArray, featureFiles, paramFile):
                 mzSdArray.append("NA")
 
         print("  Calibration summary")
+        print("  ===================")
         print("  After calibration, RT- and m/z-shifts of each run (against the reference run) are centered to zero")
         print("  Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows,")
         print("  Filename\t\t\t#features\tSD of RT-shifts [second]\tSD of m/z-shifts [ppm]")
@@ -642,24 +644,19 @@ def alignFeatures(fArray, featureFiles, paramFile):
         print("  =================")
         fullFeatures, partialFeatures, unalignedFeatures = findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray,
                                                                                featureNames, params)
-        print()
-
-        # Convert numpy structured arrays to pandas dataframe for sharing/storing
-        dfFull = pd.DataFrame(fullFeatures)
-        dfPartial = pd.DataFrame(partialFeatures)
-        dfArrayUnaligned = []
-        for unaligned in unalignedFeatures:
-            dfArrayUnaligned.append(pd.DataFrame(unaligned))
-
-        return dfFull, dfPartial, dfArrayUnaligned
     else:
         print("  Since a single feature is used, the feature alignment is skipped")
         fullFeatures = np.copy(fArray[0])  # Masked array to 2D numpy array
         colNames = list(fullFeatures.dtype.names)
-        featureName = os.path.splitext(os.path.basename(featureFiles[0]))[0]
+        featureName = os.path.splitext(os.path.basename(xmlFiles[0]))[0]
         fullFeatures.dtype.names = [featureName + "_" + c for c in colNames]
-        print()
+        partialFeatures, unalignedFeatures = None, None
 
-        # Convert numpy structured arrays to pandas dataframe for sharing/storing
-        dfFull = pd.DataFrame(fullFeatures)
-        return dfFull, None, None
+    ################################################################
+    # Write fully-, partially- and/or un-aligned features to files #
+    ################################################################
+    # At this step, fully-, partially- and unaligned features are written to files and saved
+    # Also, those features are converted to pandas DataFrame format and returned
+    dfFull, dfPartial, dfArrayUnaligned = utils.generateFeatureFile(fullFeatures, partialFeatures, unalignedFeatures, params)
+
+    return dfFull, dfPartial, dfArrayUnaligned

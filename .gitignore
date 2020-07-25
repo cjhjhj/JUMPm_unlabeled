@@ -44,3 +44,7 @@ neutralLoss.csv
 .ipynb_checkpoints/featureDetection-checkpoint.py
 .ipynb_checkpoints/metfrag_result-checkpoint.csv
 librarySearchResult.txt
+align_IROA_C18_target/
+test.py
+IROA_c18_target1/
+IROA_c18_target2/

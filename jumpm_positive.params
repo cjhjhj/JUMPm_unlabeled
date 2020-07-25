@@ -33,7 +33,8 @@ adduct = 1            # 0 = disable adduct detection, 1 = enable
 skip_feature_detection = 0       # 0 = don't skip (i.e. perform feature detection), 1 = skip
 ## If you choose 'skip_feature_detection = 1', then specify absolute path(s) of feature file(s) separated by new line
 ## Note that .mzXML file(s) should be located in the same place where the following .feature file(s) are
-feature_files = /research/rgs01/home/clusterHome/bxie/JUMPm/FA_setup/RB_Loading/RB_titration_0p01mg_02/RB_titration_0p01mg_02.1.feature
+feature_files = /Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/IROA_c18_target1/IROA_c18_target1.feature
+/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/IROA_c18_target2/IROA_c18_target2.feature
 
 #######################################
 ## Parameters for processing spectra ##
@@ -77,7 +78,7 @@ pct_full_alignment = 100         # percentage of samples are grouped into a feat
 #############################################################################
 ## Parameters for processing MS2 spectra for features (for advanced users) ##
 #############################################################################
-ppi_threshold_of_features = 0    # PPI (percentage of precursor ion) threshold for assigning each MS2 spectrum to feature(s)
+ppi_threshold_of_features = max  # PPI (percentage of precursor ion) threshold for assigning each MS2 spectrum to feature(s)
 tol_precursor = 10               # PPM tolerance for finding a MS1 peak corresponding to a feature
 tol_intra_ms2_consolidation = 10 # PPM tolerance for merging MS2 spectra within a run
 tol_inter_ms2_consolidation = 20 # PPM tolerance for merging MS2 spectra between runs
