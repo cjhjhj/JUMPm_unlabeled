@@ -62,7 +62,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     # This file contains "summarized" information of fully-aligned features
     # e.g. mean m/z, mean intensity, mean RT of fully-aligned features and so on
     #      width and SNratio are from the reference run
-    featureDict = {"feature_num": [], "feature_ion": [], "feature_m/z": [], "feature_RT": [],
+    featureDict = {"feature_num": [], "feature_ion": [], "feature_z":[], "feature_m/z": [], "feature_RT": [],
                    "feature_width": [], "feature_SNratio": [], "feature_intensity": []}
     mzCol = [col for col in full.dtype.names if col.lower().endswith("_mz")]
     rtCol = [col for col in full.dtype.names if col.lower().endswith("_rt")]
@@ -112,6 +112,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
         # Summarize featureDict (it is going to be used to make a pandas DataFrame)
         featureDict["feature_num"].append(i + 1)
         featureDict["feature_ion"].append(fIon)
+        featureDict["feature_z"].append(charge)
         featureDict["feature_m/z"].append(fMz)
         featureDict["feature_RT"].append(fRt)
         featureDict["feature_width"].append(fWidth)
@@ -124,7 +125,9 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     df["MS2"] = ms2
     df = df.sort_values(by = "feature_m/z", ignore_index = True)
     df["feature_num"] = df.index + 1    # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
-    df.to_csv(fullName, columns = featureDict.keys(), index = False, sep = "\t")
+    dfColumns = ["feature_num", "feature_ion", "feature_m/z", "feature_RT",
+                 "feature_width", "feature_SNratio", "feature_intensity"]
+    df.to_csv(fullName, columns = dfColumns, index = False, sep = "\t")
 
     # Write MS2 spectra to files
     filePath = os.path.join(filePath, "MS2")

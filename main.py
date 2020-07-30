@@ -6,6 +6,8 @@ from featureAlignment import alignFeatures
 from featureToMS2 import ms2ForFeatures
 from librarySearch import searchLibrary
 
+print("  Jump -m started")
+print()
 
 # paramFile = r"/Research/Projects/7Metabolomics/htan_IROA/2020/hilic/align_test/jumpm_negative.params"
 paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/jumpm_positive.params"
@@ -14,6 +16,9 @@ params = utils.getParams(paramFile)
 #####################
 # Feature detection #
 #####################
+print("  #####################")
+print("  # Feature detection #")
+print("  #####################")
 featureArray = []
 if params["skip_feature_detection"] == "0":
     # inputFiles = [r"/Research/Projects/7Metabolomics/htan_IROA/2020/hilic/IROA_neg_target/IROA_neg_target.mzXML"]
@@ -39,20 +44,36 @@ print()
 #####################
 # Feature alignment #
 #####################
+# When there are multiple runs (samples), features from them will be aligned against a reference run
+# (the reference run is selected by (1) number of features, (2) intensity level of most strongest features,
+#  or (3) user-specified run)
+# Output variables
+# 1. fullFeatures: pandas DataFrame of fully-aligned features (with run-specific information)
+# 2. partialFeatures: pandas DataFrame of partially-aligned features (with run-specific information)
+# 3. unalignedFeatures: array of pandas DataFrame of unaligned features
+# In addition, those features are written to files
+print("  #####################")
+print("  # Feature alignment #")
+print("  #####################")
 fileNames = [os.path.basename(i) for i in inputFiles]
 fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(featureArray, fileNames, paramFile)
 print()
-# Print out features (fully-, partially and un-aligned features)
 
 ############################################
 # MS2 spectrum generation for each feature #
 ############################################
+print("  #######################################")
+print("  # Processing MS2 spectra for features #")
+print("  #######################################")
 fullFeatures, featureToScan = ms2ForFeatures(fullFeatures, inputFiles, paramFile)
 print()
 
 ##################
 # Library search #
 ##################
-# libFile = "library.db"
-# searchLibrary(fullFeatures, libFile, paramFile)
-# print()
+print("  ##################")
+print("  # Library search #")
+print("  ##################")
+libFile = r"/Research/Projects/7Metabolomics/library/StJude/stjude_library_c18p.db"
+res = searchLibrary(fullFeatures, libFile, paramFile)
+print()

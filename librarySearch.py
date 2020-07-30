@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, sqlite3, utils, numpy as np, pandas as pd
+import sys, os, re, sqlite3, utils, numpy as np, pandas as pd
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import FloatVector
 from featureAlignment import loess
@@ -99,22 +99,24 @@ def searchLibrary(full, libFile, paramFile):
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
     matchMzTol = 10  # Unit of ppm
+    nFeatures = full.shape[0]
 
     #############################
     # Open sqlite-based library #
     #############################
+    print("  Library is being loaded")
     try:
         conn = sqlite3.connect(libFile)
     except:
         sys.exit("Library file cannot be found or cannot be loaded")
 
-    command = "select * from library"   # Load a master table containing entities of library compounds
+    command = "select * from library"  # Load a master table containing entities of library compounds
     libTable = pd.read_sql_query(command, conn)
     nCompounds = libTable.shape[0]
     libTable = libTable.replace("na", np.nan)  # If there's "na", replace it with np.nan
     libTable.columns = libTable.columns.str.replace(" ", "")
     libRt = libTable[condition + "_rt"].to_numpy(dtype="float")
-    libRt = [rt * 60 for rt in libRt] # Note that library RT is using "minute"
+    libRt = [rt * 60 for rt in libRt]  # Note that library RT is using "minute"
     libM = libTable["monoisotopic_mass"].to_numpy(dtype="float")  # This "monoisotopic mass" is a neutral mass
     libZ = libTable[condition + "_charge"].to_numpy(dtype="float")
     if params["mode"] == "1":
@@ -122,27 +124,10 @@ def searchLibrary(full, libFile, paramFile):
     elif params["mode"] == "-1":
         libMz = (libM - libZ * proton) / libZ
 
-    ############################
-    # Load feature information #
-    ############################
-    # Organize feature information
-    nFeatures = full.shape[0]
-    fMS2 = full["MS2"].tolist()
-    mzCol = [col for col in full.columns if col.lower().endswith("_mz")]
-    fMeanMz = (full[mzCol].mean(axis=1)).to_numpy()
-    rtCol = [col for col in full.columns if col.lower().endswith("_rt")]
-    fMeanRt = (full[rtCol].mean(axis=1)).to_numpy()
-    intCol = [col for col in full.columns if col.lower().endswith("_intensity")]
-    fMeanIntensity = (full[intCol].mean(axis=1)).to_numpy()
-    fZ = np.zeros(len(fMS2))
-    fZ[:] = np.nan
-    for i in range(len(fMS2)):
-        if fMS2[i] is not None:
-            fZ[i] = fMS2[i]["charge"]
-
     #####################################################
     # RT-alignment between features and library entries #
     #####################################################
+    print("  RT-alignment is being performed between features and library compounds")
     # Preparation of LOESS-based RT alignment
     x, y = np.array([]), np.array([])  # To be used for RT-alignment
     for i in range(len(libMz)):
@@ -157,9 +142,9 @@ def searchLibrary(full, libFile, paramFile):
         # In the revision, one with the closest m/z to the library compound is chosen
         minRtDiff = 600  # Arbitrary threshold of minimum RT-difference between a feature and library compounds
         for j in range(nFeatures):
-            compMz = fMeanMz[j]
-            compRt = fMeanRt[j]
-            compZ = fZ[j]
+            compMz = full["feature_m/z"].iloc[j]
+            compRt = full["feature_RT"].iloc[j]
+            compZ = full["feature_z"].iloc[j]
             if np.isnan(compZ):
                 continue
             mzDiff = abs(refMz - compMz) / refMz * 1e6
@@ -173,8 +158,8 @@ def searchLibrary(full, libFile, paramFile):
                         compInd = j
                         minRtDiff = rtDiff
         if not np.isnan(compInd):
-            x = np.append(x, fMeanRt[compInd])  # RT of features
-            y = np.append(y, (fMeanRt[compInd] - refRt))  # RTshift
+            x = np.append(x, full["feature_RT"].iloc[compInd])  # RT of features
+            y = np.append(y, (full["feature_RT"].iloc[compInd] - refRt))  # RTshift
 
     # LOESS modeling
     rLoess = loess()
@@ -187,48 +172,91 @@ def searchLibrary(full, libFile, paramFile):
     uL = truncatedMean + 3 * truncatedSd
     ind = np.where((y >= lL) & (y <= uL))[0]
 
-    # LOESS fitting
+    # LOESS fitting and calibrate feature RT
     mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
-    fMeanRt = fMeanRt - rPredict(mod, FloatVector(fMeanRt))
+    full["feature_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
 
     # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
-    ecdfRT = ECDF(abs(np.array(mod.rx2("residuals"))))
-
+    ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
 
     ########################################
     # Match features and library compounds #
     ########################################
-    # For library MS2 spectra, the path itself cannot be used as a table name in sqlite because of slashes
-    # So, in library building, the table name is set to 'path' (bracketed by single quotations)
-    # When retrieving, the command should be as follows,
-    # SELECT * FROM '''/research/.../sjm00001p.MS2'''
-
     # Match features and library compounds
-    res = np.zeros((nFeatures, nCompounds))
-    res[:] = np.nan
+    print("  Features are being compared with library compounds")
+    res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [], "feature_intensity": [],
+           "id": [], "formula": [], "name": [], "SMILES": [], "InchiKey": [], "RT_shift": [],
+           "RT_score": [], "MS2_score": [], "combined_score": []}
+    n = 0
+    progress = utils.progressBar(nFeatures)
     for i in range(nFeatures):
-        if np.isnan(fZ[i]):  # When MS2 spectrum of the feature is not defined, skip it
+        progress.increment()
+        fZ = full["feature_z"].iloc[i]
+        fSpec = full["MS2"].iloc[i]
+        if np.isnan(fZ) or fSpec is None:  # When MS2 spectrum of the feature is not defined, skip it
             continue
+
+        fMz = full["feature_m/z"].iloc[i]
+        fRt = full["feature_RT"].iloc[i]
+        fIntensity = full["feature_intensity"].iloc[i]
         for j in range(nCompounds):
             if np.isnan(libRt[j]):  # When there's no experimental information of a compound, skip it
                 continue
-            if 0 < fZ[i] != libZ[j] > 0:
+            if 0 < fZ != libZ[j] > 0:
                 continue
-            mzDiff = abs(fMeanMz[i] - libMz[j]) / libMz[j] * 1e6
+            mzDiff = abs(fMz - libMz[j]) / libMz[j] * 1e6
             if mzDiff < matchMzTol:
                 # Calculate the similarity score between feature and library MS2 spectra
-                featSpec = fMS2[i]
-                sqlQuery = r"select * from " + "'''" + libTable[condition + "_linkms2"][j] + "'''"
+                #             # For library MS2 spectra, the path itself cannot be used as a table name in sqlite because of slashes
+                #             # So, in library building, the table name is set to 'path' (bracketed by single quotations)
+                #             # When retrieving, the command should be as follows,
+                #             # SELECT * FROM '''/research/.../sjm00001p.MS2'''
+                #             sqlQuery = r"select * from " + "'''" + libTable["id"].iloc[j] + "'''"
+
+                n += 1
+                ms2TableName = libTable["id"].iloc[j]
+                # If "id" is a decoy, then "ms2TableName" should be non-decoy "id"
+                if bool(re.search("decoy", ms2TableName.lower())):
+                    ms2TableName = ms2TableName.replace("##Decoy_", "")
+                sqlQuery = r"select * from " + ms2TableName
                 libSpec = pd.read_sql_query(sqlQuery, conn).to_dict(orient="list")
-                pMS2 = 1 - calcMS2Similarity(featSpec, libSpec)   # p-value-like score
+                pMS2 = 1 - calcMS2Similarity(fSpec, libSpec)  # p-value-like score
                 pMS2 = max(np.finfo(float).eps, pMS2)
 
-                # Calculate the (similarity?) score based on RT-difference
-                pRT = ecdfRT(abs(fMeanRt[i] - libRt[j]))  # Also, p-value-like score
-                pRT = max(np.finfo(float).eps, pRT)
+                # Calculate the (similarity?) score based on RT-shift
+                rtShift = fRt - libRt[j]
+                pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score
+                pRt = max(np.finfo(float).eps, pRt)
 
                 # Harmonic mean of two p(like)-value
-                p = 1 / (0.5 / pMS2 + 0.5 / pRT)    # Harmonic mean with equal weights
-                print(i, j, pMS2, pRT, p)
+                p = 1 / (0.5 / pMS2 + 0.5 / pRt)  # Harmonic mean with equal weights
+
+                # Output
+                libId = libTable["id"].iloc[j]
+                libFormula = libTable["formula"].iloc[j]
+                libName = libTable["name"].iloc[j]
+                libSmiles = libTable["smiles"].iloc[j]
+                libInchiKey = libTable["inchikey"].iloc[j]
+
+                res["no"].append(n)
+                res["feature_index"].append(i + 1)
+                res["feature_m/z"].append(fMz)
+                res["feature_RT"].append(fRt)
+                res["feature_intensity"].append(fIntensity)
+                res["id"].append(libId)
+                res["formula"].append(libFormula)
+                res["name"].append(libName)
+                res["SMILES"].append(libSmiles)
+                res["InchiKey"].append(libInchiKey)
+                res["RT_shift"].append(rtShift)
+                res["RT_score"].append(pRt)
+                res["MS2_score"].append(pMS2)
+                res["combined_score"].append(p)
+
     conn.close()
-    print()
+    res = pd.DataFrame.from_dict(res)
+    filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
+    outputFile = os.path.join(filePath, params["output_name"] + "_library_search_result.txt")
+    res.to_csv(outputFile, sep = "\t", index = False)
+
+    return res

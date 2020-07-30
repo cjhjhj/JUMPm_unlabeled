@@ -161,22 +161,6 @@ def loess():
             }		
             fit <- loess(y ~ x1 + x2, degree=degree, span=span1, family=family, data=data.bind, control=control...)
         }
-        if (plot){
-            if (ncol(x)==1) {
-                m <- 100
-                x.new <- seq(min(x), max(x), length.out=m)
-                fit.new <- predict(fit, data.frame(x = x.new))
-                plot(x, y, col="lightgrey", xlab="x", ylab="m(x)", ...)
-                lines(x.new,fit.new, lwd=1.5, ...)
-            } else {
-                m <- 50
-                x1 <- seq(min(data.bind$x1), max(data.bind$x1), len=m) 
-                x2 <- seq(min(data.bind$x2), max(data.bind$x2), len=m) 
-                x.new <- expand.grid(x1=x1, x2=x2) 
-                fit.new <- matrix(predict(fit, x.new), m, m) 
-                persp(x1, x2, fit.new, theta=40, phi=30, ticktype="detailed", xlab="x1", ylab="x2", zlab="y", col="lightblue", expand=0.6)
-            }		
-        }
         return(fit)
     }
     """

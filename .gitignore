@@ -48,3 +48,6 @@ align_IROA_C18_target/
 test.py
 IROA_c18_target1/
 IROA_c18_target2/
+IROA_c18_target1_peak_frequency.txt
+IROA_c18_target2_peak_frequency.txt
+IROA_hilic_neg_mix15_peak_frequency.txt
