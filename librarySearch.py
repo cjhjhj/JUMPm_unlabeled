@@ -78,8 +78,8 @@ def searchLibrary(full, libFile, paramFile):
     # full = fully-aligned features and their MS2 (consolidated) spectra (Pandas DataFrame)
     # libFile = SQLite-version of a library file (.db file)
     #           It should include entities and MS2 spectra of library compounds
-    #           - Main table: entities
-    #           - Sub tables: individual MS2 spectra
+    #           - "library" table: metadata of compounds
+    #           - "ms2" table: MS2 spectra of compounds
     # paramFile = parameter file (a text file)
 
     ##################################
@@ -110,7 +110,7 @@ def searchLibrary(full, libFile, paramFile):
     except:
         sys.exit("Library file cannot be found or cannot be loaded")
 
-    command = "select * from library"  # Load a master table containing entities of library compounds
+    command = r"SELECT * FROM library"  # Load a master table containing entities of library compounds
     libTable = pd.read_sql_query(command, conn)
     nCompounds = libTable.shape[0]
     libTable = libTable.replace("na", np.nan)  # If there's "na", replace it with np.nan
@@ -207,18 +207,11 @@ def searchLibrary(full, libFile, paramFile):
             mzDiff = abs(fMz - libMz[j]) / libMz[j] * 1e6
             if mzDiff < matchMzTol:
                 # Calculate the similarity score between feature and library MS2 spectra
-                #             # For library MS2 spectra, the path itself cannot be used as a table name in sqlite because of slashes
-                #             # So, in library building, the table name is set to 'path' (bracketed by single quotations)
-                #             # When retrieving, the command should be as follows,
-                #             # SELECT * FROM '''/research/.../sjm00001p.MS2'''
-                #             sqlQuery = r"select * from " + "'''" + libTable["id"].iloc[j] + "'''"
-
                 n += 1
-                ms2TableName = libTable["id"].iloc[j]
-                # If "id" is a decoy, then "ms2TableName" should be non-decoy "id"
-                if bool(re.search("decoy", ms2TableName.lower())):
-                    ms2TableName = ms2TableName.replace("##Decoy_", "")
-                sqlQuery = r"select * from " + ms2TableName
+                uid = libTable["id"].iloc[j]
+                if bool(re.search("decoy", uid.lower())):
+                    uid = uid.replace("##Decoy_", "")
+                sqlQuery = r"SELECT mz, intensity FROM " + uid
                 libSpec = pd.read_sql_query(sqlQuery, conn).to_dict(orient="list")
                 pMS2 = 1 - calcMS2Similarity(fSpec, libSpec)  # p-value-like score
                 pMS2 = max(np.finfo(float).eps, pMS2)
