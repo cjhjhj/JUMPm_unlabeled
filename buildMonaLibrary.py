@@ -16,8 +16,8 @@ conn.execute('''CREATE TABLE IF NOT EXISTS ms2 (id VARCHAR(255), mz REAL, intens
 n = 0
 proton = 1.007276466812
 flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
-uid, otherIds, name, synonym, formula, mass, energy, inchikey, smiles, rt, charge = \
-    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
+uid, otherIds, name, synonym, formula, energy, inchikey, smiles, rt, mass, charge = \
+    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None
 smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
     "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
 
@@ -67,7 +67,7 @@ with open(sdfFile, encoding="utf-8") as f:
                 energy = f.readline().strip()
             elif line.endswith("<NUM PEAKS>"):
                 nPeaks = int(f.readline().strip())
-            elif line.endswith("<MASS SPECTRAL PEAKS>") and 0 < nPeaks < 1000:
+            elif line.endswith("<MASS SPECTRAL PEAKS>"): # and 0 < nPeaks < 1000:
                 flagMS2 = 1
                 dictMs2 = {"id": [], "mz": [], "intensity": []}
         elif line.endswith("$$$$"):
@@ -85,7 +85,7 @@ with open(sdfFile, encoding="utf-8") as f:
                 dictLib["smiles"].append(smiles)
                 dictLib["rt"].append(rt)
                 # Some entries do not have <PRECURSOR TYPE> field information. In this cae, charge is set to 1
-                if charge is "NA":
+                if charge is None:
                     charge = 1
                 dictLib["charge"].append(charge)
 
@@ -95,6 +95,9 @@ with open(sdfFile, encoding="utf-8") as f:
                 except NameError:
                     dictMs2 = None
                 if dictMs2 is not None:
+                    # Limit the number of peaks to 100
+                    if len(dictMs2["mz"] > 100):
+
                     # Normalize intensities of MS2 spectrum (base peak = 100)
                     dictMs2["intensity"] = [val / max(dictMs2["intensity"]) * 100 for val in dictMs2["intensity"]]
                     # Change the dictionary to the list of dictionaries to insert this MS2 spectrum to SQLite table
@@ -105,8 +108,8 @@ with open(sdfFile, encoding="utf-8") as f:
                     conn.commit()
 
             # Re-initialize variables (for next compound)
-            uid, otherIds, name, synonym, formula, mass, energy, inchikey, smiles, rt, charge = \
-                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
+            uid, otherIds, name, synonym, formula, energy, inchikey, smiles, rt, mass, charge = \
+                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None
             smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
                 "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
             flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
@@ -126,15 +129,14 @@ with open(sdfFile, encoding="utf-8") as f:
                     rt = line.replace("retention time=", "")
                     if rt.endswith("min") or rt.endswith("minutes") or rt.endswith("minute") or rt.endswith("m"):
                         try:
-                            rt = float(re.search("[0-9.]+",
-                                                 rt).group()) * 60  # Convert to numeric value and the unit of second
-                        except:
-                            rt = "NA"
+                            rt = float(re.search("[0-9.]+", rt).group()) * 60  # Convert to numeric value and the unit of second
+                        except (NameError, AttributeError):
+                            rt = None
                     elif rt.endswith("sec") or rt.endswith("seconds") or rt.endswith("second") or rt.endswith("s"):
                         try:
                             rt = float(re.search("[0-9.]+", rt).group())
-                        except:
-                            rt = "NA"
+                        except (NameError, AttributeError):
+                            rt = None
                 elif line.startswith("exact mass") and mass == "NA":
                     mass = float(line.replace("exact mass=", ""))
                 else:
@@ -173,16 +175,6 @@ for i in range(dfDecoy.shape[0]):
 
 dfLib = dfLib.append(dfDecoy, ignore_index = True)
 dfLib.to_sql("library", conn, if_exists = "replace")    # Table name is "library"
-
-# ############################################################
-# # Organize the DataFrame of MS2 spectra (including decoys) #
-# ############################################################
-# dfMs2 = pd.DataFrame.from_dict(dictMs2, orient = "columns")
-# dfDecoyMs2 = dfMs2.copy()
-# for i in range(dfDecoyMs2.shape[0]):
-#     dfDecoyMs2.loc[i, "id"] = "##Decoy_" + dfDecoyMs2.loc[i, "id"]
-# dfMs2 = dfMs2.append(dfDecoyMs2, ignore_index = True)
-# dfMs2.to_sql("ms2", conn, if_exists = "replace")
 
 conn.close()
 '''

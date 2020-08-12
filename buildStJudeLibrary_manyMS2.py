@@ -12,7 +12,7 @@ import os, sqlite3, pandas as pd
 # Initialization (path of library template file and experimental condition)
 templateFile = r"/Research/Projects/7Metabolomics/library/StJude/Metabolome_library_v3.1.1.txt"
 condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
-dbName = "stjude_library_" + condition + ".db"
+dbName = "stjude_library_" + condition + "_manyMS2.db"
 dbName = os.path.join(os.path.dirname(templateFile), dbName)
 conn = sqlite3.connect(dbName)
 
@@ -46,7 +46,7 @@ dfLib = dfLib.rename(columns = {"idstjude": "id", "monoisotopic_mass": "mass"})
 dfLib.columns = dfLib.columns.str.lower()    # Column names are all lowercases
 
 # Spectral metadata table
-colNames = [col for col in df.columns if col.lower().startswith(condition)]
+dfLib["collision_energy"] = df[condition + "_ms2setting"]
 dfLib["rt"] = df[condition + "_rt"]
 dfLib["rt"] = [float(val) * 60 if val != "na" else None for val in dfLib["rt"]] # Convert to "second" unit
 dfLib["charge"] = df[condition + "_charge"]
@@ -66,9 +66,7 @@ for i in range(dfLib.shape[0]):
         uid = os.path.splitext(os.path.basename(ms2Path))[0][:-1]
         dfMs2 = pd.read_csv(ms2Path, sep = "\t", engine = "python")    # Header (precursor m/z and charge) is ignored
         dfMs2.columns = ["mz", "intensity"]
-        dfMs2["id"] = dfLib["id"].iloc[i]
-        dfAllMs2 = dfAllMs2.append(dfMs2, ignore_index = True)
-dfAllMs2.to_sql("ms2", conn, if_exists = "replace", index = False)   # Table name is "ms2"
+        dfMs2.to_sql(uid, conn, if_exists = "replace", index = False)   # Table name is the same as compound id (e.g. sjm00001)
 
 #################################################################
 # Addition of decoys (by adding 3 * proton to the neutral mass) #
