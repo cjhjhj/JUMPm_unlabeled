@@ -51,3 +51,9 @@ IROA_c18_target2/
 IROA_c18_target1_peak_frequency.txt
 IROA_c18_target2_peak_frequency.txt
 IROA_hilic_neg_mix15_peak_frequency.txt
+jumpm_positive_test.params
+align_test/IROA_c18_target1_unaligned.feature
+align_test/IROA_c18_target2_unaligned.feature
+align_test/test_fully_aligned.feature
+align_test/
+comparison_test/

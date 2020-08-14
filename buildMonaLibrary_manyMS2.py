@@ -8,7 +8,6 @@ sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LC-MS-MS_P
 # Open a SQLite database and write the library DataFrame to the database
 dbName = os.path.splitext(sdfFile)[0] + "_manyMS2.db"
 conn = sqlite3.connect(dbName)
-conn.execute('''CREATE TABLE IF NOT EXISTS ms2 (id VARCHAR(255), mz REAL, intensity REAL);''')
 
 ########################
 # Initialize variables #
@@ -69,7 +68,7 @@ with open(sdfFile, encoding="utf-8") as f:
                 nPeaks = int(f.readline().strip())
             elif line.endswith("<MASS SPECTRAL PEAKS>") and 0 < nPeaks < 1000:
                 flagMS2 = 1
-                dictMs2 = {"id": [], "mz": [], "intensity": []}
+                dictMs2 = {"mz": [], "intensity": []}
         elif line.endswith("$$$$"):
             # Output formatting: "$$$$" is a separator of each compound
             if mass != "NA":
@@ -113,6 +112,7 @@ with open(sdfFile, encoding="utf-8") as f:
             smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
                 "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
             flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
+            dictMs2 = None
 
             n += 1
             if n % 1000 == 0:
