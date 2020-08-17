@@ -20,6 +20,7 @@ inputFiles = args[1:]
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
 
+print()
 print("  Jump -m started")
 now = datetime.now()
 nowString = now.strftime("%Y/%m/%d %H:%M:%S")
@@ -30,6 +31,7 @@ params = utils.getParams(paramFile)
 #####################
 # Feature detection #
 #####################
+print()
 print("  #####################")
 print("  # Feature detection #")
 print("  #####################")
