@@ -5,6 +5,7 @@ import rpy2.robjects as ro
 from rpy2.robjects.vectors import FloatVector
 from featureAlignment import loess
 from statsmodels.distributions.empirical_distribution import ECDF
+from scipy import stats
 
 
 def calcMS2Similarity(featSpec, libSpec):
@@ -197,7 +198,8 @@ def searchLibrary(full, paramFile):
                         rtShift = fRt - df["rt"].iloc[j]
                         pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score
                         pRt = max(np.finfo(float).eps, pRt)
-                        p = 1 / (0.5 / pMS2 + 0.5 / pRt)  # Combined p-value using harmonic mean with equal weights
+                        # p = 1 / (0.5 / pMS2 + 0.5 / pRt)  # Combined p-value using harmonic mean with equal weights
+                        p = 1 - stats.chi2.cdf(-2 * (np.log(pMS2) + np.log(pRt)), 4)    # Fisher's method
                     else:
                         rtShift = None
                         pRt = 1
@@ -230,7 +232,7 @@ def searchLibrary(full, paramFile):
     conn.close()
     res = pd.DataFrame.from_dict(res)
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
-    outputFile = os.path.join(filePath, params["output_name"] + ".library_matches")
+    outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".library_matches")
     res.to_csv(outputFile, sep = "\t", index = False)
 
     return res
