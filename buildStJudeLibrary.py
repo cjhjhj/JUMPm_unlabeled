@@ -60,8 +60,6 @@ dfLib["charge"] = df[condition + "_charge"]
 ##############################
 # Processing of MS2 spectrum #
 ##############################
-dfAllMs2 = pd.DataFrame()
-ms2Array = list()
 for i in range(dfLib.shape[0]):
     colName = condition + "_linkms2"
     ms2Path = df[colName].iloc[i]
