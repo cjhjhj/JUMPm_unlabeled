@@ -6,13 +6,18 @@ import sys, os, sqlite3, pandas as pd
 # Template is a text file containing compound metadata
 # MS2 spectrum of each metabolite (when available) is stored in a separate text file (.MS2)
 
+# Usage
+# python buildStJudeLibrary.py <template file (full path)> <column and mode information (e.g. hilicn, c18p, etc.)>
+
 ################################
 # Handling of library template #
 ################################
 # Initialization (path of library template file and experimental condition)
 # templateFile = r"/Research/Projects/7Metabolomics/library/StJude/Metabolome_library_v3.1.1.txt"
+# condition = "hilicn"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
+
 templateFile = sys.argv[1]
-condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
+condition = sys.argv[2]
 dbName = "stjude_library_" + condition + ".db"
 dbName = os.path.join(os.path.dirname(templateFile), dbName)
 conn = sqlite3.connect(dbName)
