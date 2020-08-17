@@ -85,8 +85,7 @@ print()
 print("  ##################")
 print("  # Library search #")
 print("  ##################")
-libFile = r"/Research/Projects/7Metabolomics/Library/StJude/stjude_library_c18p_manyMS2.db"
-res = searchLibrary(fullFeatures, libFile, paramFile)
+res = searchLibrary(fullFeatures, paramFile)
 print()
 
 print("  Jump -m finished")

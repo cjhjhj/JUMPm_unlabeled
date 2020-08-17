@@ -3,6 +3,7 @@
 #############################
 library_search = 1     # 0 = do not search a library,  1 = search a library  (library should be specified)
 library = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt
+library_rt_alignment = 1         # 0 = do not perform RT-alignment against library compounds, 1 = perform RT-alignment
 output_name = test     # Used for unlabeled data analysis. Prefix "align_" will be automatically added
 skip_feature_detection = 0       # 0 = don't skip (i.e. perform feature detection), 1 = skip
 ## If you choose 'skip_feature_detection = 1', then specify absolute path(s) of feature file(s) separated by new line

@@ -71,7 +71,7 @@ def calcMS2Similarity(featSpec, libSpec):
     return normDotProduct
 
 
-def searchLibrary(full, libFile, paramFile):
+def searchLibrary(full, paramFile):
     ##################################
     # Load parameters and initialize #
     ##################################
@@ -79,7 +79,6 @@ def searchLibrary(full, libFile, paramFile):
         params = utils.getParams(paramFile)
     except:
         sys.exit("Parameter file cannot be found or cannot be loaded")
-    params["RT_alignment"] = "1"
     condition = params["LC_column"].lower()
     if params["mode"] == "1":
         condition = condition + "p"
@@ -95,15 +94,16 @@ def searchLibrary(full, libFile, paramFile):
     # Open sqlite-based library #
     #############################
     print("  Library is being loaded")
+    libFile = params["library"]
     try:
         conn = sqlite3.connect(libFile)
     except:
-        sys.exit("Library file cannot be found or cannot be loaded")
+        sys.exit("Library file cannot be found or cannot be loaded.")
 
     #####################################################
     # RT-alignment between features and library entries #
     #####################################################
-    if params["RT_alignment"] == "1":
+    if params["library_rt_alignment"] == "1":
         print("  RT-alignment is being performed between features and library compounds")
         # Preparation of LOESS-based RT alignment
         x, y = np.array([]), np.array([])  # To be used for RT-alignment
