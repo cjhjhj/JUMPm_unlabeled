@@ -1,9 +1,14 @@
 #############################
 # Library search parameters #
 #############################
-library_search = 1     # 0 = do not search a library,  1 = search a library  (library should be specified)
+library_search = 1               # 0 = do not search a library,  1 = search a library  (library should be specified)
 library = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt
 output_name = test     # Used for unlabeled data analysis. Prefix "align_" will be automatically added
+skip_feature_detection = 0       # 0 = don't skip (i.e. perform feature detection), 1 = skip
+## If you choose 'skip_feature_detection = 1', then specify absolute path(s) of feature file(s) separated by new line
+## Note that .mzXML file(s) should be located in the same directory where the following .feature file(s) are
+feature_files = /home/htan/2019/IROA_library/pos/IROA_IS_POS_1/IROA_IS_POS_1.1.feature
+/home/htan/2019/IROA_library/pos/IROA_IS_POS_2/IROA_IS_POS_2.1.feature
 
 ##################################
 # Parameters for data properties #
