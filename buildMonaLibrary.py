@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, sqlite3, pyodbc, re, numpy as np, pandas as pd
-from sqlalchemy import create_engine, event
+import sys, os, sqlite3, re, numpy as np, pandas as pd
 
 # Open a SQLite database and write the library DataFrame to the database
 # sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LC-MS-MS_Positive_Mode.sdf"
