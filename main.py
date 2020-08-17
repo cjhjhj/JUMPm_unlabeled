@@ -1,20 +1,31 @@
 #!/usr/bin/python
 
-import os, re, utils, numpy as np, pandas as pd
+import sys, os, re, utils, numpy as np, pandas as pd
 from featureDetection import detectFeatures
 from featureAlignment import alignFeatures
 from featureToMS2 import ms2ForFeatures
 from librarySearch import searchLibrary
 from datetime import datetime
 
+##################
+# Initialization #
+##################
+args = sys.argv
+del args[0]
+paramFile = args[0]
+inputFiles = args[1:]
+
+# # For desktop debugging,
+# paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
+# inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
+#               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
+
 print("  Jump -m started")
 now = datetime.now()
 nowString = now.strftime("%Y/%m/%d %H:%M:%S")
 print("  " + nowString)
-
-# paramFile = r"/Research/Projects/7Metabolomics/htan_IROA/2020/hilic/align_test/jumpm_negative.params"
-paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 params = utils.getParams(paramFile)
+
 
 #####################
 # Feature detection #
@@ -24,9 +35,6 @@ print("  # Feature detection #")
 print("  #####################")
 featureArray = []
 if params["skip_feature_detection"] == "0":
-    # inputFiles = [r"/Research/Projects/7Metabolomics/htan_IROA/2020/hilic/IROA_neg_target/IROA_neg_target.mzXML"]
-    inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
-                  r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
     nFiles = len(inputFiles)
     for i in range(nFiles):
         f = detectFeatures(inputFiles[i], paramFile)
