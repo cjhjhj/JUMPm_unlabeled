@@ -3,10 +3,10 @@
 import sys, os, sqlite3, pyodbc, re, numpy as np, pandas as pd
 from sqlalchemy import create_engine, event
 
-# sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LC-MS-MS_Positive_Mode.sdf"
-sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LipidBlast.sdf"
-
 # Open a SQLite database and write the library DataFrame to the database
+# sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LC-MS-MS_Positive_Mode.sdf"
+# sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LipidBlast.sdf"
+sdfFile = sys.argv[1]
 dbName = os.path.splitext(sdfFile)[0] + "_manyMS2.db"
 conn = sqlite3.connect(dbName)
 
