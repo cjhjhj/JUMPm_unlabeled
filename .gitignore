@@ -57,3 +57,8 @@ align_test/IROA_c18_target2_unaligned.feature
 align_test/test_fully_aligned.feature
 align_test/
 comparison_test/
+align_test_all/
+*.pickle
+profileTest_result.txt
+profileTest.py
+librarySearch_test.py

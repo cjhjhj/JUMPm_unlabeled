@@ -41,7 +41,7 @@ feature_files = /Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/IROA_c
 #######################################
 data_acquisition_mode = 2        # 1 = centroid, 2 = profile for full scan and centroid for MS/MS scan 
 first_scan_extraction = 1000     # the first scan used for search			 
-last_scan_extraction = 1200      # the last scan used for search
+last_scan_extraction = 1500      # the last scan used for search
 isolation_window = 1             # isolation window size 1= +/-0.5
 mass_correction = 0              # 0 = no correction, 1 = MS1-based
 decharge_ppm = 10                # intrascan isotopic tolerance for decharging

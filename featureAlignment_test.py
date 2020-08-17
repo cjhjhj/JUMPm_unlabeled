@@ -658,3 +658,18 @@ def alignFeatures(fArray, xmlFiles, paramFile):
     dfFull, dfPartial, dfArrayUnaligned = utils.generateFeatureFile(fullFeatures, partialFeatures, unalignedFeatures, params)
 
     return dfFull, dfPartial, dfArrayUnaligned
+
+
+
+
+paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
+inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
+              r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
+featureArray = []
+f = pd.read_csv(r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/align_test_all/IROA_c18_target1/IROA_c18_target1.feature", sep="\t")
+featureArray.append(f)
+f = pd.read_csv(r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/align_test_all/IROA_c18_target2/IROA_c18_target2.feature", sep="\t")
+featureArray.append(f)
+
+fileNames = [os.path.basename(i) for i in inputFiles]
+fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(featureArray, fileNames, paramFile)

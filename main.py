@@ -5,12 +5,15 @@ from featureDetection import detectFeatures
 from featureAlignment import alignFeatures
 from featureToMS2 import ms2ForFeatures
 from librarySearch import searchLibrary
+from datetime import datetime
 
 print("  Jump -m started")
-print()
+now = datetime.now()
+nowString = now.strftime("%Y/%m/%d %H:%M:%S")
+print("  " + nowString)
 
 # paramFile = r"/Research/Projects/7Metabolomics/htan_IROA/2020/hilic/align_test/jumpm_negative.params"
-paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/jumpm_positive.params"
+paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 params = utils.getParams(paramFile)
 
 #####################
@@ -22,8 +25,8 @@ print("  #####################")
 featureArray = []
 if params["skip_feature_detection"] == "0":
     # inputFiles = [r"/Research/Projects/7Metabolomics/htan_IROA/2020/hilic/IROA_neg_target/IROA_neg_target.mzXML"]
-    inputFiles = [r"/Research/Projects/7Metabolomics/htan_IROA/2019/c18/test/IROA_c18_target1/IROA_c18_target1.mzXML",
-                  r"/Research/Projects/7Metabolomics/htan_IROA/2019/c18/test/IROA_c18_target2/IROA_c18_target2.mzXML"]
+    inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
+                  r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
     nFiles = len(inputFiles)
     for i in range(nFiles):
         f = detectFeatures(inputFiles[i], paramFile)
@@ -74,6 +77,11 @@ print()
 print("  ##################")
 print("  # Library search #")
 print("  ##################")
-libFile = r"/Research/Projects/7Metabolomics/library/StJude/stjude_library_c18p.db"
+libFile = r"/Research/Projects/7Metabolomics/Library/StJude/stjude_library_c18p_manyMS2.db"
 res = searchLibrary(fullFeatures, libFile, paramFile)
 print()
+
+print("  Jump -m finished")
+now = datetime.now()
+nowString = now.strftime("%Y/%m/%d %H:%M:%S")
+print("  " + nowString)

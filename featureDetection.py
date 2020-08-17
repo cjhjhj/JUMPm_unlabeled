@@ -133,7 +133,10 @@ def reduceMS1(spec, noise, array):
 
     # Noise level estimation
     ind = np.setdiff1d(range(len(spec["m/z array"])), array)
-    noiseLevel = np.percentile(spec["intensity array"][ind], 25)    # 25 percentile = 1st quartile = median of bottom 50%
+    if ind.size == 0:
+        noiseLevel = 500    # When noiseLevel cannot be estimated, a default noiseLevel is set to 500
+    else:
+        noiseLevel = np.percentile(spec["intensity array"][ind], 25)    # 25 percentile = 1st quartile = median of bottom 50%
     # noiseLevel = np.percentile([spec["intensity array"][i] for i in ind], 25)   # 25 percentile = 1st quartile = median of bottom 50%
     noise[spec["num"]] = noiseLevel
 
@@ -158,6 +161,12 @@ def getClosest(spec, mz, tol):
 
 
 def dechargeFeatures(features):
+
+
+
+    np.seterr(all='raise')
+
+
     # features = features of np.recarray format
     features = np.sort(features, order = "intensity")[::-1]  # Sort features in descending order of intensity
     delC = 1.00335  # Mass difference between 13C and 12C
@@ -188,7 +197,7 @@ def dechargeFeatures(features):
                     max2 = features["maxRT"][j]
                     minRange = min(max1 - min1, max2 - min2)
                     rtOverlap = findRtOverlap(min1, max1, min2, max2)
-                    if rtOverlap / minRange < 0.5:
+                    if minRange == 0 or (rtOverlap / minRange) < 0.5:
                         continue
 
                     # Look for potential isotopic peak and decharge
