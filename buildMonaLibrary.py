@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, event
 # sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LC-MS-MS_Positive_Mode.sdf"
 # sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LipidBlast.sdf"
 sdfFile = sys.argv[1]
-dbName = os.path.splitext(sdfFile)[0] + "_manyMS2.db"
+dbName = os.path.splitext(sdfFile)[0] + ".db"
 conn = sqlite3.connect(dbName)
 
 ########################
