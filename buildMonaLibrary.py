@@ -108,7 +108,7 @@ with open(sdfFile, encoding="utf-8") as f:
 
             # Re-initialize variables (for next compound)
             uid, otherIds, name, synonym, formula, energy, inchikey, smiles, rt, mass, charge = \
-                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None
+                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
             smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
                 "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
             flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
