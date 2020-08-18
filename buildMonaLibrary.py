@@ -16,7 +16,7 @@ n = 0
 proton = 1.007276466812
 flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
 uid, otherIds, name, synonym, formula, energy, inchikey, smiles, rt, mass, charge = \
-    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None
+    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
 smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
     "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
 
@@ -160,6 +160,8 @@ with open(sdfFile, encoding="utf-8") as f:
                 dictMs2["mz"].append(float(mz))
                 dictMs2["intensity"].append(float(intensity))
 
+print("Finished inserting MS2 spectra to the database")
+
 ###########################################################################
 # Organize the DataFrame of library table (with the generation of decoys) #
 ###########################################################################
@@ -174,5 +176,6 @@ for i in range(dfDecoy.shape[0]):
 
 dfLib = dfLib.append(dfDecoy, ignore_index = True)
 dfLib.to_sql("library", conn, if_exists = "replace")    # Table name is "library"
-
 conn.close()
+print("Finished inserting a library table to the database")
+print()
