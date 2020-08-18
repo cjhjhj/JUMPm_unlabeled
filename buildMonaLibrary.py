@@ -160,7 +160,7 @@ with open(sdfFile, encoding="utf-8") as f:
                 dictMs2["mz"].append(float(mz))
                 dictMs2["intensity"].append(float(intensity))
 
-print("Finished inserting MS2 spectra to the database")
+print("\n  Finished inserting MS2 spectra to the database")
 
 ###########################################################################
 # Organize the DataFrame of library table (with the generation of decoys) #
@@ -177,5 +177,5 @@ for i in range(dfDecoy.shape[0]):
 dfLib = dfLib.append(dfDecoy, ignore_index = True)
 dfLib.to_sql("library", conn, if_exists = "replace")    # Table name is "library"
 conn.close()
-print("Finished inserting a library table to the database")
+print("  Finished inserting a library table to the database")
 print()
