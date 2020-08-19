@@ -4,8 +4,42 @@ import os, sys, re, time, shutil, utils, numpy as np, pandas as pd
 from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
 
+def ms2Consolidation(refSpec, compSpec, tol):
+    # refSpec: reference spectrum = {"mz": np.array, "intensity": np.array}
+    # compSpec: compared spectrum = {"mz": np.array, "intensity": np.array}
+
+    # To speed up the procedure, np.array is converted to python list
+    refMz = refSpec["mz"].tolist()
+    refIntensity = refSpec["intensity"].tolist()
+    compMz = compSpec["mz"].tolist()
+    compIntensity = compSpec["intensity"].tolist()
+
+    for i in range(len(refMz)):
+        mz = refMz[i]
+        intensity = refMz[i]
+        lL = mz - mz * tol / 1e6
+        uL = mz + mz * tol / 1e6
+        idx = [k for k, v in enumerate(compMz) if lL <= v <= uL]
+        if len(idx) > 0:
+            idx = idx[np.argmax(np.array(compIntensity)[np.array(idx)])]
+            refMz[i] = (mz * intensity + compMz[idx] * compIntensity[idx]) / (intensity + compIntensity[idx])
+            refIntensity[i] += compIntensity[idx]
+            del compMz[idx], compIntensity[idx]
+
+    refMz.extend(compMz)
+    refIntensity.extend(compIntensity)
+    refSpec["mz"] = np.array(refMz)
+    refSpec["intensity"] = np.array(refIntensity)
+    return refSpec
+
 
 def intraConsolidation(ms2, scans, tol):
+    # input arguments
+    # ms2: dictionary of MS2 spectra; key = scan number, val = {"mz": np.array, "intensity": np.array}
+    # scans: array of "feature-to-scanNumber" [# features x # runs]
+    #        scans[i, j] = list of MS2 scan(number)s of j-th run corresponding to i-th feature
+    # tol: m/z tolerance for merging MS2 peaks
+
     # Sort MS2 spectra according to their total ion current (descending order)
     scans = scans.split(";")
     tic = np.array([sum(ms2[key]["intensity"]) for key in scans])
@@ -16,23 +50,7 @@ def intraConsolidation(ms2, scans, tol):
     if len(scans) > 0:
         for i in range(len(scans)):
             p = ms2[scans[i]]
-            for j in range(len(spec["mz"])):
-                if len(p["mz"]) == 0:
-                    break
-                mz = spec["mz"][j]
-                intensity = spec["intensity"][j]
-                lL = mz - mz * tol / 1e6
-                uL = mz + mz * tol / 1e6
-                ind = np.where((p["mz"] >= lL) & (p["mz"] <= uL))[0]
-                if len(ind) > 0:
-                    ind = ind[np.argmax(p["intensity"][ind])]
-                    spec["mz"][j] = (mz * intensity + p["mz"][ind] * p["intensity"][ind]) \
-                                    / (intensity + p["intensity"][ind])  # New m/z = weighted average
-                    spec["intensity"][j] += p["intensity"][ind] # New intensity = sum of intensities
-                    p["mz"] = np.delete(p["mz"], ind)
-                    p["intensity"] = np.delete(p["intensity"], ind)
-            spec["mz"] = np.append(spec["mz"], p["mz"])
-            spec["intensity"] = np.append(spec["intensity"], p["intensity"])
+            spec = ms2Consolidation(spec, p, tol)
     # Sort the spectrum in ascending order of m/z
     ind = np.argsort(spec["mz"])
     spec["mz"] = spec["mz"][ind]
@@ -41,6 +59,10 @@ def intraConsolidation(ms2, scans, tol):
 
 
 def interConsolidation(specs, tol):
+    # input arguments
+    # specs: array of "feature-to-spectrum" [# features x # runs]
+    #        specs[i, j] = (intra-consolidated) MS2 spectrum of j-th run corresponding to i-th feature
+    # tol: m/z tolerance for merging MS2 peaks
     specs = [i for i in specs if i is not None]  # Skip "None"
     tic = [sum(s["intensity"]) for s in specs]
     if len(tic) > 1:
@@ -52,36 +74,10 @@ def interConsolidation(specs, tol):
     else:
         spec = specs[0]
         specs = []
-
-    # tic = [sum(s["intensity"]) for s in specs]
-    # if len(tic) > 1:
-    #     ind = np.argmax(tic)
-    #     spec = specs[ind]  # Reference MS2 spectrum for merging others for a feature
-    #     del specs[ind]
-    # else:
-    #     spec = specs[0]
-    #     specs = []
-
     if len(specs) > 0:
         for i in range(len(specs)):
             p = specs[i]
-            for j in range(len(spec["mz"])):
-                if len(p["mz"]) == 0:
-                    break
-                mz = spec["mz"][j]
-                intensity = spec["intensity"][j]
-                lL = mz - mz * tol / 1e6
-                uL = mz + mz * tol / 1e6
-                ind = np.where((p["mz"] >= lL) & (p["mz"] <= uL))[0]
-                if len(ind) > 0:
-                    ind = ind[np.argmax(p["intensity"][ind])]
-                    spec["mz"][j] = (mz * intensity + p["mz"][ind] * p["intensity"][ind]) \
-                                    / (intensity + p["intensity"][ind])  # New m/z = weighted average
-                    spec["intensity"][j] += p["intensity"][ind]  # New intensity = sum of intensities
-                    p["mz"] = np.delete(p["mz"], ind)
-                    p["intensity"] = np.delete(p["intensity"], ind)
-            spec["mz"] = np.append(spec["mz"], p["mz"])
-            spec["intensity"] = np.append(spec["intensity"], p["intensity"])
+            spec = ms2Consolidation(spec, p, tol)
     # Sort the spectrum in ascending order of m/z
     ind = np.argsort(spec["mz"])
     spec["mz"] = spec["mz"][ind]
