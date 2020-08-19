@@ -104,7 +104,20 @@ def searchLibrary(full, paramFile):
     #####################################################
     # RT-alignment between features and library entries #
     #####################################################
+    # Check whether 'rt' column of the library is numeric value or not
     if params["library_rt_alignment"] == "1":
+        preQuery = r"SELECT rt FROM library ORDER BY ROWID ASC LIMIT 1"
+        preDf = pd.read_sql_query(preQuery, conn)
+        if "float" not in str(preDf["mass"].dtype):
+            params["library_rt_alignment"] = "2"
+
+    if params["library_rt_alignment"] == "0":
+        print("  According to the parameter, RT-alignment is not performed between features and library compounds")
+    elif params["library_rt_alignment"] == "2":
+        print("  Although the parameter is set to perform RT-alignment against the library, there is/are non-numeric value(s) in the library")
+        print("  Therefore, RT-alignment is not performed")
+        params["library_rt_alignment"] = "0"
+    elif params["library_rt_alignment"] == "1":
         print("  RT-alignment is being performed between features and library compounds")
         # Preparation of LOESS-based RT alignment
         x, y = np.array([]), np.array([])  # To be used for RT-alignment
@@ -146,8 +159,6 @@ def searchLibrary(full, paramFile):
 
         # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
         ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
-    else:
-        print("  According to the parameter, RT-alignment is not performed between features and library compounds")
 
     ########################################
     # Match features and library compounds #
