@@ -108,7 +108,7 @@ def searchLibrary(full, paramFile):
     if params["library_rt_alignment"] == "1":
         preQuery = r"SELECT rt FROM library ORDER BY ROWID ASC LIMIT 1"
         preDf = pd.read_sql_query(preQuery, conn)
-        if "float" not in str(preDf["mass"].dtype):
+        if "float" not in str(preDf["rt"].dtype):
             params["library_rt_alignment"] = "2"
 
     if params["library_rt_alignment"] == "0":
