@@ -10,12 +10,13 @@ from datetime import datetime
 ##################
 # Initialization #
 ##################
-args = sys.argv
-del args[0]
-paramFile = args[0]
-inputFiles = args[1:]
+# args = sys.argv
+# del args[0]
+# paramFile = args[0]
+# inputFiles = args[1:]
 
 # For desktop debugging,
+<<<<<<< HEAD
 # paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
@@ -23,6 +24,11 @@ inputFiles = args[1:]
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a1/neg_ko_a1.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a2/neg_ko_a2.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a3/neg_ko_a3.feature"]
+=======
+paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
+inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
+              r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
+>>>>>>> some scripts for MetFrag-based database search have been implemented (generation of CSV files and database search)
 
 print()
 print("  Jump -m started")
