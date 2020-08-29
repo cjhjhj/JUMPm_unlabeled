@@ -402,21 +402,22 @@ def matchFeatures(ref, comp, rtSd, mzSd, params):
         rowInd = np.where((abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]))[0]
 
         if len(rowInd) > 0:
-            if z == 0:  # Undetermined charge
-                rowInd = rowInd[0]
+            if z == 0:  # When the reference feature's charge is undetermined
+                rowInd = rowInd[0]  # Choose the strongest feature as matched
                 if rowInd not in compInd:
                     refInd.append(i)
                     compInd.append(rowInd)
             else:
-                rowInd = rowInd[0]
-                if comp["z"][rowInd] == 0:
+                rowInd2 = np.where(comp["z"][rowInd] == z)[0]
+                if len(rowInd2) > 0:    # When there is/are feature(s) matched to the reference one in terms of rt, mz and charge
+                    rowInd = rowInd[rowInd2[0]] # Choose the strongest among matched features
                     if rowInd not in compInd:
                         refInd.append(i)
                         compInd.append(rowInd)
-                else:
-                    rowInd = np.where((abs(rtDev) <= rtTol[i]) & (abs(mzDev) <= mzTol[i]) & (comp["z"][rowInd] == z))[0]
-                    if len(rowInd) > 0:
-                        rowInd = rowInd[0]
+                else:   # When there's no feature having the same charge as the reference feature
+                    rowInd2 = np.where(comp["z"][rowInd] == 0)[0]   # Find "comp" feature(s) with charge = 0 (and rtDev and mzDev are within tolerances)
+                    if len(rowInd2) > 0:
+                        rowInd = rowInd[rowInd2[0]] # Choose the strongest among matched features with charge = 0
                         if rowInd not in compInd:
                             refInd.append(i)
                             compInd.append(rowInd)

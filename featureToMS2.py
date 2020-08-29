@@ -230,6 +230,9 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     for file in mzxmlFiles:
         baseFilename = os.path.basename(file)
         featureDirectory = os.path.join(os.getcwd(), os.path.splitext(baseFilename)[0])
-        os.rename(file, os.path.join(featureDirectory, baseFilename))
+        if os.path.isfile(os.path.join(featureDirectory, baseFilename)):
+            continue
+        else:
+            os.rename(file, os.path.join(featureDirectory, baseFilename))
 
     return df, featureToScan

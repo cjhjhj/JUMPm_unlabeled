@@ -40,12 +40,14 @@ def detectPeaks(spec, params):
                             newMz, newIntensity = findPeakCenter(minInd, i, maxInd, mzArray, intensityArray)
                             newMzArray = np.append(newMzArray, newMz)
                             newIntensityArray = np.append(newIntensityArray, newIntensity)
+    else:  # i.e. Centroid mode MS1
+        idx = np.where(intensityArray >= intensityThreshold)[0]
+        newMzArray = mzArray[idx]
+        newIntensityArray = intensityArray[idx]
 
-        # Update "spec" object
-        spec["m/z array"] = newMzArray
-        spec["intensity array"] = newIntensityArray
-
-    # Do nothing for centroid mode MS1
+    # Update "spec" object
+    spec["m/z array"] = newMzArray
+    spec["intensity array"] = newIntensityArray
     return spec
 
 
