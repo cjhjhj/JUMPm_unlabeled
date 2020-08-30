@@ -104,11 +104,11 @@ def globalCalibration(ref, comp, mzTol=20):
 def loess():
     rstring = """
     loess.as = function(x, y, degree = 1, criterion="aicc", family="gaussian", user.span=NULL, plot=FALSE, ...) {
-        
+
         criterion <- match.arg(criterion)
         family <- match.arg(family)
         x <- as.matrix(x)
-        
+
         if ((ncol(x) != 1) & (ncol(x) != 2)) stop("The predictor 'x' should be one or two dimensional!!")
         if (!is.numeric(x)) stop("argument 'x' must be numeric!")
         if (!is.numeric(y)) stop("argument 'y' must be numeric!")
@@ -118,12 +118,12 @@ def loess():
             stop("argument 'user.span' must be a numerical number!")
         if(nrow(x) != length(y)) stop("'x' and 'y' have different lengths!")
         if(length(y) < 3) stop("not enough observations!")
-        
+
         data.bind <- data.frame(x=x, y=y)
         if (ncol(x) == 1) {
             names(data.bind) <- c("x", "y")
         } else { names(data.bind) <- c("x1", "x2", "y") }
-        
+
         opt.span <- function(model, criterion=c("aicc", "gcv"), span.range=c(.05, .95)){	
             as.crit <- function (x) {
                 span <- x$pars$span
@@ -142,7 +142,7 @@ def loess():
             result <- optimize(fn, span.range)
             return(list(span=result$minimum, criterion=result$objective))
         }
-        
+
         control = loess.control(surface = "direct")
         if (ncol(x)==1) {
             if (is.null(user.span)) {
@@ -355,23 +355,27 @@ def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, 
             charge = uRef["z"][i]
             if charge == 0:
                 ind = ind[0]
-                refInd.append(uRefInd[i])
-                compInd.append(uCompInd[ind])
-                nRescue += 1
-            else:
-                if uComp["z"][ind[0]] == 0:
-                    ind = ind[0]
+                if uCompInd[ind] not in compInd:
                     refInd.append(uRefInd[i])
                     compInd.append(uCompInd[ind])
                     nRescue += 1
-                else:
-                    ind2 = np.where(uComp["z"][ind] == charge)[0]
-                    if len(ind2) > 0:
-                        ind2 = ind2[0]
+            else:
+                ind2 = np.where(uComp["z"][ind] == charge)[0]
+                if len(
+                        ind2) > 0:  # When there is/are feature(s) matched to the reference one in terms of mz, rt and charge
+                    ind = ind[ind2[0]]
+                    if uCompInd[ind] not in compInd:
                         refInd.append(uRefInd[i])
-                        compInd.append(uCompInd[ind2])
+                        compInd.append(uCompInd[ind])
                         nRescue += 1
-
+                else:
+                    ind2 = np.where(uComp["z"][ind] == 0)[0]
+                    if len(ind2) > 0:
+                        ind = ind[ind2[0]]
+                        if uCompInd[ind] not in compInd:
+                            refInd.append(uRefInd[i])
+                            compInd.append(uCompInd[ind])
+                            nRescue += 1
     print("    Through the rescue procedure %d features are additionally aligned" % nRescue)
     return (refInd, compInd)
 
@@ -409,15 +413,17 @@ def matchFeatures(ref, comp, rtSd, mzSd, params):
                     compInd.append(rowInd)
             else:
                 rowInd2 = np.where(comp["z"][rowInd] == z)[0]
-                if len(rowInd2) > 0:    # When there is/are feature(s) matched to the reference one in terms of rt, mz and charge
-                    rowInd = rowInd[rowInd2[0]] # Choose the strongest among matched features
+                if len(
+                        rowInd2) > 0:  # When there is/are feature(s) matched to the reference one in terms of rt, mz and charge
+                    rowInd = rowInd[rowInd2[0]]  # Choose the strongest among matched features
                     if rowInd not in compInd:
                         refInd.append(i)
                         compInd.append(rowInd)
-                else:   # When there's no feature having the same charge as the reference feature
-                    rowInd2 = np.where(comp["z"][rowInd] == 0)[0]   # Find "comp" feature(s) with charge = 0 (and rtDev and mzDev are within tolerances)
+                else:  # When there's no feature having the same charge as the reference feature
+                    rowInd2 = np.where(comp["z"][rowInd] == 0)[
+                        0]  # Find "comp" feature(s) with charge = 0 (and rtDev and mzDev are within tolerances)
                     if len(rowInd2) > 0:
-                        rowInd = rowInd[rowInd2[0]] # Choose the strongest among matched features with charge = 0
+                        rowInd = rowInd[rowInd2[0]]  # Choose the strongest among matched features with charge = 0
                         if rowInd not in compInd:
                             refInd.append(i)
                             compInd.append(rowInd)
@@ -455,7 +461,8 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
                 mzTolUnit = params["mz_tolerance_unit"].split(",")
                 mzTol = params["mz_tolerance_value"].split(",")
                 for j in range(len(rtTol)):
-                    refInd, compInd = rescueComparableFeatures(fArray[refNo], fArray[i], refInd, compInd, rtSdArray[i], mzSdArray[i],
+                    refInd, compInd = rescueComparableFeatures(fArray[refNo], fArray[i], refInd, compInd, rtSdArray[i],
+                                                               mzSdArray[i],
                                                                rtTolUnit[j], rtTol[j], mzTolUnit[j], mzTol[j])
                     # rowInd = np.nonzero(np.in1d(indArray[:, refNo], refInd))[0]
                     # indArray[rowInd, i] = compInd
@@ -537,12 +544,10 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     pctFullAlignment = float(params["pct_full_alignment"])
     if pctFullAlignment < 100:
         colNames = [col for col in partial.dtype.names if col.endswith('mz')]
-        nRuns = np.sum(np.array(partial[colNames].tolist()) > 0,
-                       axis=1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
+        nRuns = np.sum(np.array(partial[colNames].tolist()) > 0, axis=1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
         rowInd = np.where(nRuns >= np.ceil(pctFullAlignment / 100 * n))[0]
 
         # Add some partially-aligned features to fully-aligned features
-        partial = stack_arrays((partial, line), asrecarray=True, usemask=False)
         full = stack_arrays((full, partial[rowInd]), asrecarray=True, usemask=False)
         partial = np.delete(partial, rowInd, axis=0)
         print("  According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(
@@ -656,6 +661,7 @@ def alignFeatures(fArray, xmlFiles, paramFile):
     ################################################################
     # At this step, fully-, partially- and unaligned features are written to files and saved
     # Also, those features are converted to pandas DataFrame format and returned
-    dfFull, dfPartial, dfArrayUnaligned = utils.generateFeatureFile(fullFeatures, partialFeatures, unalignedFeatures, params)
+    dfFull, dfPartial, dfArrayUnaligned = utils.generateFeatureFile(fullFeatures, partialFeatures, unalignedFeatures,
+                                                                    params)
 
     return dfFull, dfPartial, dfArrayUnaligned

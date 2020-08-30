@@ -10,15 +10,21 @@ from datetime import datetime
 ##################
 # Initialization #
 ##################
-args = sys.argv
-del args[0]
-paramFile = args[0]
-inputFiles = args[1:]
+# args = sys.argv
+# del args[0]
+# paramFile = args[0]
+# inputFiles = args[1:]
 
-# # For desktop debugging,
+# For desktop debugging,
 # paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
+
+paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/library_jumpm_negative.params"
+inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a1/neg_ko_a1.feature",
+              r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a2/neg_ko_a2.feature",
+              r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a3/neg_ko_a3.feature"]
+
 
 print()
 print("  Jump -m started")
@@ -50,7 +56,14 @@ try:
             featureArray.append(f)
 
             # Define inputFiles array containing mzXML file(s)
-            inputFiles.append(re.sub(".feature$", ".mzXML", file))
+            mzxmlFile = re.sub(".feature$", ".mzXML", file)
+            if os.path.isfile(mzxmlFile):
+                inputFiles.append(mzxmlFile)
+            else:
+                sys.exit("  {} should be in the directory where {} is located".format(os.path.basename(mzxmlFile), os.path.basename(file)))
+        print("  According to the parameter setting, the feature detection is skipped")
+        print("  Feature(s) is/are obtained from .feature file(s)")
+
     print()
 
     #####################
