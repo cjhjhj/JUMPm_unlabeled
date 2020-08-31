@@ -62,6 +62,58 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     # This file contains "summarized" information of fully-aligned features
     # e.g. mean m/z, mean intensity, mean RT of fully-aligned features and so on
     #      width and SNratio are from the reference run
+    mzCol = [col for col in full.dtype.names if col.lower().endswith("_mz")]
+    rtCol = [col for col in full.dtype.names if col.lower().endswith("_rt")]
+    intensityCol = [col for col in full.dtype.names if col.lower().endswith("_intensity")]
+    chargeCol = [col for col in full.dtype.names if col.lower().endswith("_z")]
+    minRtCol = [col for col in full.dtype.names if col.lower().endswith("_minrt")]
+    maxRtCol = [col for col in full.dtype.names if col.lower().endswith("_maxrt")]
+    snCol = [col for col in full.dtype.names if col.lower().endswith("_snratio")]
+
+    df = pd.DataFrame.from_records(full)
+    res = pd.DataFrame()
+    res["feature_m/z"] = df[mzCol].mean(axis=1)
+    res["feature_RT"] = df[rtCol].mean(axis=1)
+    res["feature_intensity"] = df[intensityCol].mean(axis=1)
+    res["feature_SNratio"] = df[snCol].mean(axis=1)
+    res["feature_width"] = pd.DataFrame((df[maxRtCol].values - df[minRtCol].values) / 60).mean(axis=1)
+    # Handling charges
+    res["feature_z"] = df[chargeCol].mode(axis=1)[0]
+    res["feature_z"][res["feature_z"] == 0] = 1
+    res["feature_z"] = res["feature_z"].astype(int)
+    if params["mode"] == "-1":
+        res["feature_ion"] = "[M-" + res["feature_z"].astype(str) + "H]" + res["feature_z"].astype(str) + "-"
+        res["feature_ion"] = res["feature_ion"].replace("[M-1H]1-", "[M-H]-")
+    elif params["mode"] == "1":
+        res["feature_ion"] = "[M+" + res["feature_z"].astype(str) + "H]" + res["feature_z"].astype(str) + "+"
+        res["feature_ion"] = res["feature_ion"].replace("[M+1H]1+", "[M+H]+")
+
+    # Add the mean m/z of feature and its charge state to the beginning of MS2 spectrum (similar to .dta file)
+    for i in range(nFeatures):
+        if ms2[i] is not None:
+            ms2[i]["mz"] = np.insert(ms2[i]["mz"], 0, res["feature_m/z"].iloc[i])
+            ms2[i]["intensity"] = np.insert(ms2[i]["intensity"], 0, res["feature_z"].iloc[i])
+    res["MS2"] = ms2
+
+    # Write the summarized fully-aligned features to a file
+    fullName = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
+    res = res.sort_values(by="feature_m/z", ignore_index=True)
+    res["feature_num"] = res.index + 1  # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
+    resColumns = ["feature_num", "feature_ion", "feature_m/z", "feature_RT",
+                 "feature_width", "feature_SNratio", "feature_intensity"]
+    res.to_csv(fullName, columns=resColumns, index=False, sep="\t")
+
+    # Write MS2 spectra to files
+    filePath = os.path.join(filePath, "MS2")
+    if not os.path.exists(filePath):
+        os.mkdir(filePath)
+    for i in range(res.shape[0]):
+        if res["MS2"].loc[i] is not None:
+            fileName = os.path.join(filePath, "f" + str(i + 1) + ".MS2")
+            dfMS2 = pd.DataFrame.from_dict(res["MS2"].loc[i])
+            dfMS2.to_csv(fileName, index=False, header=False, sep="\t")
+
+    '''
     featureDict = {"feature_num": [], "feature_ion": [], "feature_z":[], "feature_m/z": [], "feature_RT": [],
                    "feature_width": [], "feature_SNratio": [], "feature_intensity": []}
     mzCol = [col for col in full.dtype.names if col.lower().endswith("_mz")]
@@ -74,6 +126,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     nRuns = len(mzCol)
     for i in range(nFeatures):
         # m/z, RT, intensity, width and SNratio of each feature are obtained by averaging information across runs
+        nRuns =
         fMz = sum(full[mzCol][i]) / nRuns
         fRt = sum(full[rtCol][i]) / nRuns
         fIntensity = sum(full[intensityCol][i]) / nRuns
@@ -87,7 +140,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
         # 1. Charge state other than 0
         # 2. More frequent charge state
         # 3. If the same frequency, choose the lower one
-        charges = [c for c in full[chargeCol][i] if c > 0]
+        charges = [int(c) for c in full[chargeCol][i] if c > 0]
         if len(charges) == 0:
             charge = 1
         else:
@@ -128,7 +181,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     dfColumns = ["feature_num", "feature_ion", "feature_m/z", "feature_RT",
                  "feature_width", "feature_SNratio", "feature_intensity"]
     df.to_csv(fullName, columns = dfColumns, index = False, sep = "\t")
-
+    
     # Write MS2 spectra to files
     filePath = os.path.join(filePath, "MS2")
     if not os.path.exists(filePath):
@@ -139,7 +192,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
             fileName = os.path.join(filePath, "f" + str(i + 1) + ".MS2")
             dfMS2 = pd.DataFrame.from_dict(df["MS2"].loc[i])
             dfMS2.to_csv(fileName, index = False, header = False, sep = "\t")
-
+    '''
     return df
 
 
@@ -160,6 +213,11 @@ def generateFeatureFile(full, partial, unaligned, params):
     # Since the run-specific information is required for MS2 processing, it should be kept here
     fullName = os.path.join(filePath, params["output_name"] + "_fully_aligned.feature")
     dfFull = pd.DataFrame(full)
+    dfFull["meanMz"] = dfFull.filter(regex=(".*mz$")).mean(axis=1)
+    dfFull = dfFull.sort_values(by = "meanMz")  # To make it consistent with the "summarized feature" file, features are sorted by mean m/z
+    colNames = dfFull.columns.tolist()
+    colNames = colNames[-1:] + colNames[:-1]
+    dfFull = dfFull[colNames]
     dfFull.to_csv(fullName, index = False, sep = "\t")
 
     ##############################################
@@ -189,4 +247,3 @@ def generateFeatureFile(full, partial, unaligned, params):
         dfArrayUnaligned = None
 
     return dfFull, dfPartial, dfArrayUnaligned
-

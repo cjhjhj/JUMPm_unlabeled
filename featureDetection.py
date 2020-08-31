@@ -163,12 +163,7 @@ def getClosest(spec, mz, tol):
 
 
 def dechargeFeatures(features):
-
-
-
-    np.seterr(all='raise')
-
-
+    # np.seterr(all='raise')  # Necessary when detecting RuntimeError caused by numpy overflow, underflow, etc
     # features = features of np.recarray format
     features = np.sort(features, order = "intensity")[::-1]  # Sort features in descending order of intensity
     delC = 1.00335  # Mass difference between 13C and 12C

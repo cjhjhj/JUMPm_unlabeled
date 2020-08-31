@@ -24,7 +24,6 @@ inputFiles = args[1:]
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a2/neg_ko_a2.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a3/neg_ko_a3.feature"]
 
-
 print()
 print("  Jump -m started")
 now = datetime.now()

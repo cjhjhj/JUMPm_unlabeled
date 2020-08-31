@@ -544,7 +544,8 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     pctFullAlignment = float(params["pct_full_alignment"])
     if pctFullAlignment < 100:
         colNames = [col for col in partial.dtype.names if col.endswith('mz')]
-        nRuns = np.sum(np.array(partial[colNames].tolist()) > 0, axis=1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
+        # nRuns = np.sum(np.array(partial[colNames].tolist()) > 0, axis=1)  # For each partially-aligned feature, the number of aligned runs (i.e. feature files)
+        nRuns = np.sum(~np.isnan(np.array(partial[colNames].tolist())), axis = 1)
         rowInd = np.where(nRuns >= np.ceil(pctFullAlignment / 100 * n))[0]
 
         # Add some partially-aligned features to fully-aligned features
