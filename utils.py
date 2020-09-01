@@ -99,7 +99,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     fullName = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
     res = res.sort_values(by="feature_m/z", ignore_index=True)
     res["feature_num"] = res.index + 1  # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
-    resColumns = ["feature_num", "feature_ion", "feature_m/z", "feature_RT",
+    resColumns = ["feature_num", "feature_ion", "feature_z", "feature_m/z", "feature_RT",
                  "feature_width", "feature_SNratio", "feature_intensity"]
     res.to_csv(fullName, columns=resColumns, index=False, sep="\t")
 
