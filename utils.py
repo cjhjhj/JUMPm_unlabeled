@@ -113,6 +113,8 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
             dfMS2 = pd.DataFrame.from_dict(res["MS2"].loc[i])
             dfMS2.to_csv(fileName, index=False, header=False, sep="\t")
 
+    return res
+
     '''
     featureDict = {"feature_num": [], "feature_ion": [], "feature_z":[], "feature_m/z": [], "feature_RT": [],
                    "feature_width": [], "feature_SNratio": [], "feature_intensity": []}
@@ -192,8 +194,10 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
             fileName = os.path.join(filePath, "f" + str(i + 1) + ".MS2")
             dfMS2 = pd.DataFrame.from_dict(df["MS2"].loc[i])
             dfMS2.to_csv(fileName, index = False, header = False, sep = "\t")
-    '''
+    
     return df
+    '''
+
 
 
 def generateFeatureFile(full, partial, unaligned, params):
