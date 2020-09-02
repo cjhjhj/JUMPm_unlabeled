@@ -320,7 +320,10 @@ def detectFeatures(inputFile, paramFile):
             # Backward search
             for k in range(i - 1, minInd - 1, -1):
                 q = cache[k - minInd]
-                match, ind = getClosest(q, cm, matchPpm)
+                if q["m/z array"].size == 0:
+                    continue
+                else:
+                    match, ind = getClosest(q, cm, matchPpm)
                 if match == 1:
                     break
                 nTry += 1
@@ -330,7 +333,10 @@ def detectFeatures(inputFile, paramFile):
                 nTry = 0
                 for k in range(i + 1, maxInd + 1):
                     q = cache[k - minInd]
-                    match, ind = getClosest(q, cm, matchPpm)
+                    if q["m/z array"].size == 0:
+                        continue
+                    else:
+                        match, ind = getClosest(q, cm, matchPpm)
                     if match == 1:
                         break
                     nTry += 1
@@ -354,13 +360,15 @@ def detectFeatures(inputFile, paramFile):
             matchedPeakInd = []
             # Backward search
             for k in range(i - 1, minInd - 1, -1):
-                q = cache[k - minInd]
-                matchIndicator, ind = getClosest(q, cm, matchPpm)
-                # $matchIndicator = 1 means that the j-th (reduced) peak in the i-th scan
-                # can form a 3D-peak with $ind-th (reduced) peak in the previous scan (%q)
-                if matchIndicator == 1:
-                    matchedPeakInd.append(q["featureIndex"][ind])
-                    match = 1
+                if q["m/z array"].size == 0:
+                    q = cache[k - minInd]
+                else:
+                    matchIndicator, ind = getClosest(q, cm, matchPpm)
+                    # $matchIndicator = 1 means that the j-th (reduced) peak in the i-th scan
+                    # can form a 3D-peak with $ind-th (reduced) peak in the previous scan (%q)
+                    if matchIndicator == 1:
+                        matchedPeakInd.append(q["featureIndex"][ind])
+                        match = 1
             if match == 1:
                 matchedPeakInd = list(set(matchedPeakInd))  # Make the list unique
                 fInd = None
