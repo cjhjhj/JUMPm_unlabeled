@@ -113,6 +113,13 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
             dfMS2 = pd.DataFrame.from_dict(res["MS2"].loc[i])
             dfMS2.to_csv(fileName, index=False, header=False, sep="\t")
 
+<<<<<<< HEAD
+=======
+    # Save fully-aligned features with their MS2 spectra (i.e. res) for debugging purpose
+    # When the pipeline gets mature, this part needs to be removed
+    pickle.dump(res, open(os.path.join(filePath, ".fully_aligned_feature.pickle"), "wb"))    # Make the file be hidden
+
+>>>>>>> 77bfdd2... library search is minorly revised; numpy int64 is not recognized in SQL query, so charge (i.e. compZ) is converted to int type again
     return res
 
 
