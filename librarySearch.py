@@ -136,7 +136,11 @@ def searchLibrary(full, paramFile):
                 df = pd.read_sql_query(sqlQuery, conn, params=(compMass, matchMzTol, compRt))
             else:
                 sqlQuery = r"SELECT rt FROM library WHERE abs((?) - mass) / mass * 1e6 < (?) AND abs((?) - rt) < 600 AND charge = (?)"
-                df = pd.read_sql_query(sqlQuery, conn, params=(compMass, matchMzTol, compRt, compZ))
+                # type(compZ) = numpy int64
+                # For some reasons, "numpy int64" cannot be directly used to SQL statement
+                # (I don't understand why. It seems that "numpy float64" works in SQL statement)
+                # To avoid this problem, in the following SQL query, compZ is converted into "int" type again
+                df = pd.read_sql_query(sqlQuery, conn, params=(compMass, matchMzTol, compRt, int(compZ)))
             if not df.empty:
                 refRt = min(df["rt"])
                 x = np.append(x, compRt)  # RT of features

@@ -115,7 +115,7 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
 
     # Save fully-aligned features with their MS2 spectra (i.e. res) for debugging purpose
     # When the pipeline gets mature, this part needs to be removed
-    pickle.dump(res, open(os.path.join(filePath, ".fully_aligned_feature.picle"), "wb"))    # Make the file be hidden
+    pickle.dump(res, open(os.path.join(filePath, ".fully_aligned_feature.pickle"), "wb"))    # Make the file be hidden
 
     return res
 
