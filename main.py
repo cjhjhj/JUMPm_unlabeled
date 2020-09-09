@@ -7,6 +7,8 @@ from featureToMS2 import ms2ForFeatures
 from librarySearch import searchLibrary
 from datetime import datetime
 
+
+'''
 ##################
 # Initialization #
 ##################
@@ -16,7 +18,6 @@ from datetime import datetime
 # inputFiles = args[1:]
 
 # For desktop debugging,
-<<<<<<< HEAD
 # paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
@@ -24,11 +25,9 @@ from datetime import datetime
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a1/neg_ko_a1.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a2/neg_ko_a2.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a3/neg_ko_a3.feature"]
-=======
 paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
->>>>>>> some scripts for MetFrag-based database search have been implemented (generation of CSV files and database search)
 
 print()
 print("  Jump -m started")
@@ -112,3 +111,15 @@ try:
     print("  " + nowString)
 except KeyboardInterrupt:
     sys.exit()
+'''
+
+import pickle, pandas as pd
+from databaseSearch import searchDatabase
+
+# Pre-calculated (fully-aligned) features
+features = pd.read_pickle("IROA_c18_target_full_features.pickle")
+params = {"database": "/Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.csv",
+          "formulaMzTol": 10, "peakMatchMzTol": 5}
+res = searchDatabase(features.iloc[0:5], params)
+res = pd.concat(res, ignore_index = True)
+print(res)

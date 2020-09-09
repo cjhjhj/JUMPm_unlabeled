@@ -1,4 +1,4 @@
-import re, sys, os, numpy as np, pandas as pd
+import re, sys, os, pickle, numpy as np, pandas as pd
 
 
 def getParams(paramFile):
@@ -104,14 +104,18 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     res.to_csv(fullName, columns=resColumns, index=False, sep="\t")
 
     # Write MS2 spectra to files
-    filePath = os.path.join(filePath, "MS2")
-    if not os.path.exists(filePath):
-        os.mkdir(filePath)
+    ms2Path = os.path.join(filePath, "MS2")
+    if not os.path.exists(ms2Path):
+        os.mkdir(ms2Path)
     for i in range(res.shape[0]):
-        if res["MS2"].loc[i] is not None:
-            fileName = os.path.join(filePath, "f" + str(i + 1) + ".MS2")
-            dfMS2 = pd.DataFrame.from_dict(res["MS2"].loc[i])
+        if res["MS2"].iloc[i] is not None:
+            fileName = os.path.join(ms2Path, "f" + str(i + 1) + ".MS2")
+            dfMS2 = pd.DataFrame.from_dict(res["MS2"].iloc[i])
             dfMS2.to_csv(fileName, index=False, header=False, sep="\t")
+
+    # Save fully-aligned features with their MS2 spectra (i.e. res) for debugging purpose
+    # When the pipeline gets mature, this part needs to be removed
+    pickle.dump(res, open(os.path.join(filePath, ".fully_aligned_feature.picle"), "wb"))    # Make the file be hidden
 
     return res
 
