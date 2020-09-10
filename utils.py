@@ -1,4 +1,4 @@
-import re, sys, os, numpy as np, pandas as pd
+import re, sys, os, pickle, numpy as np, pandas as pd
 
 
 def getParams(paramFile):
