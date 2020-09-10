@@ -360,6 +360,7 @@ def detectFeatures(inputFile, paramFile):
             matchedPeakInd = []
             # Backward search
             for k in range(i - 1, minInd - 1, -1):
+                q = cache[k - minInd]
                 if q["m/z array"].size == 0:
                     continue
                 else:
