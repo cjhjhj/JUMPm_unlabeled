@@ -360,8 +360,9 @@ def detectFeatures(inputFile, paramFile):
             matchedPeakInd = []
             # Backward search
             for k in range(i - 1, minInd - 1, -1):
+                q = cache[k - minInd]
                 if q["m/z array"].size == 0:
-                    q = cache[k - minInd]
+                    continue
                 else:
                     matchIndicator, ind = getClosest(q, cm, matchPpm)
                     # $matchIndicator = 1 means that the j-th (reduced) peak in the i-th scan
