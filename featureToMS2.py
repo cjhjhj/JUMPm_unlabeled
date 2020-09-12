@@ -137,7 +137,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
         subset = full[colNames]
         subset.dtype.names = [s.split("_")[-1] for s in subset.dtype.names]
         ms2Dict = {}
-        minScan, maxScan = int(min(subset["minMS1"])), int(max(subset["maxMS1"]))
+        minScan, maxScan = int(np.nanmin(subset["minMS1"])), int(np.nanmax(subset["maxMS1"]))
         progress = utils.progressBar(maxScan - minScan + 1)
         print("  %s is being processed" % os.path.basename(file))
         print("  Looking for MS2 scan(s) responsible for each feature")
