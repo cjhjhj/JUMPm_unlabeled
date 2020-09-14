@@ -205,20 +205,24 @@ def searchLibrary(full, paramFile):
                     n += 1
                     # Calculate the score based on MS2 spectrum
                     libSpec = libSpec.to_dict(orient="list")
-                    pMS2 = 1 - calcMS2Similarity(fSpec, libSpec)  # p-value-like score
-                    pMS2 = max(np.finfo(float).eps, pMS2)
+                    simMs2 = calcMS2Similarity(fSpec, libSpec)
+                    pMs2 = 1 - simMs2  # p-value-like score (the smaller, the better)
+                    pMs2 = max(np.finfo(float).eps, pMs2)   # Prevent the underflow caused by 0
 
                     # Calculate the (similarity?) score based on RT-shift
                     if params["library_rt_alignment"] == "1":
                         rtShift = fRt - df["rt"].iloc[j]
-                        pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score
+                        pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score (the smaller, the better)
                         pRt = max(np.finfo(float).eps, pRt)
+                        simRt = 1 - pRt
                         # p = 1 / (0.5 / pMS2 + 0.5 / pRt)  # Combined p-value using harmonic mean with equal weights
-                        p = 1 - stats.chi2.cdf(-2 * (np.log(pMS2) + np.log(pRt)), 4)    # Fisher's method
+                        p = 1 - stats.chi2.cdf(-2 * (np.log(pMs2) + np.log(pRt)), 4)    # Fisher's method
+                        # p = -2 * (np.log(pMs2) + np.log(pRt))   # Fisher's method used in Perl pipeline (the smaller, the better)
                     else:
                         rtShift = None
                         pRt = 1
-                        p = pMS2
+                        simRt = 1 - pRt
+                        p = pMs2
 
                     # Output
                     libId = df["id"].iloc[j]
@@ -240,8 +244,13 @@ def searchLibrary(full, paramFile):
                     res["InchiKey"].append(libInchiKey)
                     res["collision_energy"].append(libEnergy)
                     res["RT_shift"].append(rtShift)
-                    res["RT_score"].append(abs(-np.log10(pRt)))  # Scores are transformed by -log10
-                    res["MS2_score"].append(abs(-np.log10(pMS2)))
+                    # res["RT_score"].append(abs(-np.log10(pRt)))  # Scores are transformed by -log10
+                    # res["MS2_score"].append(abs(-np.log10(pMS2)))
+
+                    # Haiyan's preference
+                    # RT_score and MS2_score: 0 ~ 1 (bad to good)
+                    res["RT_score"].append(simRt)
+                    res["MS2_score"].append(simMs2)
                     res["combined_score"].append(abs(-np.log10(p)))
 
     conn.close()
