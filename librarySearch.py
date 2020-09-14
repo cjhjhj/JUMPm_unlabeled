@@ -8,15 +8,15 @@ from statsmodels.distributions.empirical_distribution import ECDF
 from scipy import stats
 
 
-def calcMS2Similarity(featSpec, libSpec):
+def calcMS2Similarity(featSpec, libSpec, params):
     # Calculation of MS2 similarity between a feature and a library compound
     # Reference: Clustering millions of tandem mass spectra, J Proteome Res. 2008; 7: 113-22
 
     # Input arguments
     # featSpec (dictionary): MS2 spectrum of a feature (key = "mz", "intensity")
     # libSpec (dictionary): MS2 spectrum of a library compound (key = "mz", "intensity", "index" (ignorable))
-
-    k = min(30, min(len(featSpec["mz"]), len(libSpec["mz"])))
+    nPeaks = int(params["num_peaks_ms2_similarity"])    # Default = 30 according to the above reference
+    k = min(nPeaks, min(len(featSpec["mz"]), len(libSpec["mz"])))
 
     # Keep $k strongest peaks in both spectra
     # featDict[mz] = intensity
@@ -205,7 +205,7 @@ def searchLibrary(full, paramFile):
                     n += 1
                     # Calculate the score based on MS2 spectrum
                     libSpec = libSpec.to_dict(orient="list")
-                    simMs2 = calcMS2Similarity(fSpec, libSpec)
+                    simMs2 = calcMS2Similarity(fSpec, libSpec, params)
                     pMs2 = 1 - simMs2  # p-value-like score (the smaller, the better)
                     pMs2 = max(np.finfo(float).eps, pMs2)   # Prevent the underflow caused by 0
 
