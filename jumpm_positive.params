@@ -63,3 +63,4 @@ ppi_threshold_of_features = max  # PPI (percentage of precursor ion) threshold f
 tol_precursor = 10               # PPM tolerance for finding a MS1 peak corresponding to a feature
 tol_intra_ms2_consolidation = 10 # PPM tolerance for merging MS2 spectra within a run
 tol_inter_ms2_consolidation = 20 # PPM tolerance for merging MS2 spectra between runs
+num_peaks_ms2_similarity = 30    # Number of peaks for comparing MS2 spectra between features and library/database entries
