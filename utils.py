@@ -38,8 +38,11 @@ class progressBar:
         self.block = 0
         self.status = ""
 
-    def increment(self):
-        self.count += 1
+    def increment(self, nIncrement = None):
+        if nIncrement == None:
+            self.count += 1
+        else:
+            self.count = nIncrement
         self.progress = self.count / self.total
         self.block = int(round(self.barLength * self.progress))
         if self.progress == 1:

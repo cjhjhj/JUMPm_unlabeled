@@ -1,4 +1,4 @@
-import os, pandas as pd, multiprocessing as mp, time
+import os, utils, pandas as pd, multiprocessing as mp, time
 
 
 def generateFiles(feature, params):
@@ -7,7 +7,6 @@ def generateFiles(feature, params):
     ms2File = "metfrag_data_" + str(num) + ".txt"
     outputName = "metfrag_result_" + str(num)
     outputFile = "metfrag_result_" + str(num) + ".csv"
-
     proton = 1.007276466812
     mass = feature["feature_z"] * (feature["feature_m/z"] - proton) # Neutral (monoisotopic) mass
 
@@ -16,8 +15,8 @@ def generateFiles(feature, params):
     f.write("PeakListPath = {}\n".format(ms2File))
     f.write("MetFragDatabaseType = LocalCSV\n")
     f.write("LocalDatabasePath = {}\n".format(params["database"]))
-    f.write("DatabaseSearchRelativeMassDeviation = {}\n".format(params["formulaMzTol"]))
-    f.write("FragmentPeakMatchRelativeMassDeviation = {}\n".format(params["peakMatchMzTol"]))
+    f.write("DatabaseSearchRelativeMassDeviation = {}\n".format(params["mass_tolerance_formula_search"]))
+    f.write("FragmentPeakMatchRelativeMassDeviation = {}\n".format(params["mass_tolerance_ms2_peaks"]))
     # f.write("LocalDatabasePath = /Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.csv\n")
     # f.write("DatabaseSearchRelativeMassDeviation = 10\n")
     # f.write("FragmentPeakMatchRelativeMassDeviation = 5\n")
@@ -39,18 +38,18 @@ def generateFiles(feature, params):
 
     # MS2 data file for MetFrag
     ms2Dict = feature["MS2"]
-    df = pd.DataFrame.from_dict(ms2Dict, orient="columns")
+    df = pd.DataFrame.from_dict(ms2Dict, orient = "columns")
     df = df.drop([0])
-    df.to_csv(ms2File, sep="\t", index=False, header=False)
+    df.to_csv(ms2File, sep = "\t", index = False, header = False)
 
     return paramFile, ms2File, outputFile
 
 
 def runMetFrag(feature, params):
-    print(feature)
-    print(params)
     if feature["MS2"] is not None:
         paramFile, ms2File, outputFile = generateFiles(feature, params)
+
+        # MetFrag should be installed first and its path should be put to the following command
         cmd = "java -jar ../../MetFrag/MetFrag2.4.5-CL.jar " + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is Linux only
         os.system(cmd)
         time.sleep(0.1)
@@ -72,7 +71,19 @@ def runMetFrag(feature, params):
 
 def searchDatabase(features, params):
     pool = mp.Pool(mp.cpu_count())
-    res = pool.starmap(runMetFrag, [(row.to_dict(), params) for idx, row in features.iterrows()])
-    # res = pool.map(runMetFrag, [row.to_dict() for idx, row in features.iterrows()])
+    res = pool.starmap_async(runMetFrag, [(row.to_dict(), params) for idx, row in features.iterrows()])
+    nTot = res._number_left
+    progress = utils.progressBar(nTot)
+    while not res.ready():
+        nFinished = nTot - res._number_left
+        progress.increment(nFinished)
+        time.sleep(0.5)
+    res.wait()
+    progress.increment(features.shape[0])
     pool.close()
+    res = pd.concat(res.get(), ignore_index = True)
+    filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
+    outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".database_matches")
+    res.to_csv(outputFile, sep = "\t", index = False)
+
     return res

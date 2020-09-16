@@ -1,9 +1,6 @@
-#############################
-# Library search parameters #
-#############################
-library_search = 1     # 0 = do not search a library,  1 = search a library  (library should be specified)
-library = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt
-library_rt_alignment = 1         # 0 = do not perform RT-alignment against library compounds, 1 = perform RT-alignment
+######################
+# General parameters #
+######################
 output_name = test     # Used for unlabeled data analysis. Prefix "align_" will be automatically added
 skip_feature_detection = 0       # 0 = don't skip (i.e. perform feature detection), 1 = skip
 ## If you choose 'skip_feature_detection = 1', then specify absolute path(s) of feature file(s) separated by new line
@@ -16,6 +13,19 @@ feature_files = /home/htan/2019/IROA_library/pos/IROA_IS_POS_1/IROA_IS_POS_1.1.f
 ##################################
 LC_column = HILIC      # type of LC column, e.g. HILIC, C18, C4, etc.
 mode = -1              # 1 = positive mode, -1 = negative mode
+
+#############################
+# Library search parameters #
+#############################
+library_search = 1               # 0 = do not search a library,  1 = search a library  (library should be specified)
+library = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt
+library_rt_alignment = 1         # 0 = do not perform RT-alignment against library compounds, 1 = perform RT-alignment
+
+##############################
+# Database search parameters #
+##############################
+database_search = 1               # 0 = do not search a database,  1 = search a database (database should be specified)
+database = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt       # CSV file for MetFrag
 
 #####################################
 # Parameters for processing spectra #
@@ -64,3 +74,9 @@ tol_precursor = 10               # PPM tolerance for finding a MS1 peak correspo
 tol_intra_ms2_consolidation = 10 # PPM tolerance for merging MS2 spectra within a run
 tol_inter_ms2_consolidation = 20 # PPM tolerance for merging MS2 spectra between runs
 num_peaks_ms2_similarity = 30    # Number of peaks for comparing MS2 spectra between features and library/database entries
+
+#####################################################
+# Parameters for database search (used for MetFrag) #
+#####################################################
+mass_tolerance_formula_search = 10 # PPM tolerance for searching chemical formula in a database
+mass_tolerance_ms2_peaks = 10      # PPM tolerance for comparing MS2 peaks between features and database entries

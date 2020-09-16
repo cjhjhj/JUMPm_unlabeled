@@ -5,6 +5,7 @@ from featureDetection import detectFeatures
 from featureAlignment import alignFeatures
 from featureToMS2 import ms2ForFeatures
 from librarySearch import searchLibrary
+from databaseSearch import searchDatabase
 from datetime import datetime
 
 
@@ -98,11 +99,22 @@ try:
     ##################
     # Library search #
     ##################
-    print("  ##################")
-    print("  # Library search #")
-    print("  ##################")
-    res = searchLibrary(fullFeatures, paramFile)
-    print()
+    if params["library_search"] == "1":
+        print("  ##################")
+        print("  # Library search #")
+        print("  ##################")
+        resLibrary = searchLibrary(fullFeatures, paramFile)
+        print()
+
+    ######################################
+    # Database search (using MetFragCLI) #
+    ######################################
+    if params["database_search"] == "1":
+        print("  ###################")
+        print("  # Database search #")
+        print("  ###################")
+        resDatabase = searchDatabase(fullFeatures, paramFile)
+        print()
 
     print("  Jump -m finished")
     now = datetime.now()
