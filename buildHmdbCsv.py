@@ -8,9 +8,9 @@ import sys, os, pandas as pd
 ##################
 # Create a table #
 ##################
-# xmlFile = sys.argv[1]
+xmlFile = sys.argv[1]
 # XML is from /https://hmdb.ca/system/downloads/current/hmdb_metabolites.zip (All metabolites)
-xmlFile = r"/Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.xml"
+# xmlFile = r"/Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.xml"
 
 ###############################################################################
 # Read a XML file and create a pandas DataFrame (to be written to a CSV file) #

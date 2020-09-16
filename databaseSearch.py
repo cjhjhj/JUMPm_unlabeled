@@ -74,7 +74,7 @@ def searchDatabase(features, paramFile):
         params = utils.getParams(paramFile)
     except:
         sys.exit("Parameter file cannot be found or cannot be loaded")
-    pool = mp.Pool(mp.cpu_count())
+    pool = mp.Pool(int(mp.cpu_count() / 2))
     res = pool.starmap_async(runMetFrag, [(row.to_dict(), params) for idx, row in features.iterrows()])
     nTot = res._number_left
     progress = utils.progressBar(nTot)
