@@ -79,7 +79,7 @@ def searchDatabase(features, params):
         progress.increment(nFinished)
         time.sleep(0.5)
     res.wait()
-    progress.increment(features.shape[0])
+    progress.increment(nTot)
     pool.close()
     res = pd.concat(res.get(), ignore_index = True)
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
