@@ -60,6 +60,8 @@ def runMetFrag(feature, params):
         os.system(cmd)
         time.sleep(0.1)
         df = pd.read_csv(outputFile)
+        if params["database"].lower() == "pubchem":
+            df = df.rename(columns = {"IUPACName": "CompoundName"})
         df["feature_index"] = feature["feature_num"]
         df["feature_m/z"] = feature["feature_m/z"]
         df["feature_RT"] = feature["feature_RT"]
