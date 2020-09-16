@@ -13,8 +13,14 @@ def generateFiles(feature, params):
     # Parameter file for MetFrag
     f = open(paramFile, "w")
     f.write("PeakListPath = {}\n".format(ms2File))
-    f.write("MetFragDatabaseType = LocalCSV\n")
-    f.write("LocalDatabasePath = {}\n".format(params["database"]))
+    if params["database"].lower() == "pubchem":
+        f.write("MetFragDatabaseType = PubChem\n")
+    else:
+        if os.path.isfile(params["database"]):
+            f.write("MetFragDatabaseType = LocalCSV\n")
+            f.write("LocalDatabasePath = {}\n".format(params["database"]))
+        else:
+            sys.exit("Please check the path of a database file (.csv)")
     f.write("DatabaseSearchRelativeMassDeviation = {}\n".format(params["mass_tolerance_formula_search"]))
     f.write("FragmentPeakMatchRelativeMassDeviation = {}\n".format(params["mass_tolerance_ms2_peaks"]))
     # f.write("LocalDatabasePath = /Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.csv\n")
