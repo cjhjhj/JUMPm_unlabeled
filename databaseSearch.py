@@ -1,4 +1,4 @@
-import os, utils, pandas as pd, multiprocessing as mp, time
+import sys, os, utils, pandas as pd, multiprocessing as mp, time
 
 
 def generateFiles(feature, params):
@@ -69,7 +69,11 @@ def runMetFrag(feature, params):
         return None
 
 
-def searchDatabase(features, params):
+def searchDatabase(features, paramFile):
+    try:
+        params = utils.getParams(paramFile)
+    except:
+        sys.exit("Parameter file cannot be found or cannot be loaded")
     pool = mp.Pool(mp.cpu_count())
     res = pool.starmap_async(runMetFrag, [(row.to_dict(), params) for idx, row in features.iterrows()])
     nTot = res._number_left
