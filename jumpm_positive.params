@@ -26,6 +26,7 @@ library_rt_alignment = 1         # 0 = do not perform RT-alignment against libra
 ##############################
 database_search = 1               # 0 = do not search a database,  1 = search a database (database should be specified)
 database = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt       # CSV file for MetFrag
+metfrag = /Research/Projects/7Metabolomics/MetFrag/MetFrag2.4.5-CL.jar                  # Full path for MetFrag CLI (jar file)
 
 #####################################
 # Parameters for processing spectra #

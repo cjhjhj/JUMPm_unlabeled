@@ -50,7 +50,7 @@ def runMetFrag(feature, params):
         paramFile, ms2File, outputFile = generateFiles(feature, params)
 
         # MetFrag should be installed first and its path should be put to the following command
-        cmd = "java -jar ../../MetFrag/MetFrag2.4.5-CL.jar " + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is Linux only
+        cmd = "java -jar " + params["metfrag"] + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is for linux only
         os.system(cmd)
         time.sleep(0.1)
         df = pd.read_csv(outputFile)
