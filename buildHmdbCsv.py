@@ -55,7 +55,14 @@ try:
 except ImportError:
     print("Error in import lxml package")
 
-df = pd.DataFrame.from_dict(hmdbDict, orient="columns")
+# Create a DataFrame for database entries and their decoys
+df = pd.DataFrame.from_dict(hmdbDict, orient = "columns")
 df = df[~df["MonoisotopicMass"].isna()]
+dfDecoy = df.copy()
+proton = 1.007276466812
+for i in range(dfDecoy.shape[0]):
+    dfDecoy.loc[i, "id"] = "##Decoy_" + dfDecoy.loc[i, "id"]
+    dfDecoy.loc[i, "mass"] += 3 * proton # This way prevents 'SettingwithCopyWarning'
+df = df.append(dfDecoy, ignore_index = True)
 csvFile = os.path.splitext(xmlFile)[0] + ".csv"
 df.to_csv(csvFile, index = False)
