@@ -5,7 +5,9 @@ from featureDetection import detectFeatures
 from featureAlignment import alignFeatures
 from featureToMS2 import ms2ForFeatures
 from librarySearch import searchLibrary
+from databaseSearch import searchDatabase
 from datetime import datetime
+
 
 ##################
 # Initialization #
@@ -23,6 +25,9 @@ inputFiles = args[1:]
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a1/neg_ko_a1.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a2/neg_ko_a2.feature",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/koa_wt/neg_ko_a3/neg_ko_a3.feature"]
+# paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
+# inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
+#               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
 
 print()
 print("  Jump -m started")
@@ -94,11 +99,22 @@ try:
     ##################
     # Library search #
     ##################
-    print("  ##################")
-    print("  # Library search #")
-    print("  ##################")
-    res = searchLibrary(fullFeatures, paramFile)
-    print()
+    if params["library_search"] == "1":
+        print("  ##################")
+        print("  # Library search #")
+        print("  ##################")
+        resLibrary = searchLibrary(fullFeatures, paramFile)
+        print()
+
+    ######################################
+    # Database search (using MetFragCLI) #
+    ######################################
+    if params["database_search"] == "1":
+        print("  ###################")
+        print("  # Database search #")
+        print("  ###################")
+        resDatabase = searchDatabase(fullFeatures, paramFile)
+        print()
 
     print("  Jump -m finished")
     now = datetime.now()
@@ -106,3 +122,15 @@ try:
     print("  " + nowString)
 except KeyboardInterrupt:
     sys.exit()
+
+
+# import pickle, pandas as pd
+# from databaseSearch import searchDatabase
+#
+# # Pre-calculated (fully-aligned) features
+# features = pd.read_pickle("IROA_c18_target_full_features.pickle")
+# params = {"database": "/Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.csv",
+#           "formulaMzTol": 10, "peakMatchMzTol": 5}
+# res = searchDatabase(features.iloc[0:5], params)
+# res = pd.concat(res, ignore_index = True)
+# print(res)
