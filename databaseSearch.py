@@ -13,6 +13,11 @@ def generateFiles(feature, params):
     # Parameter file for MetFrag
     f = open(paramFile, "w")
     f.write("PeakListPath = {}\n".format(ms2File))
+
+    # Even though this code is designed to use a database including PubChem, PubChem is not available in practice due
+    # to the following reasons. 1) Many queries to PubChem through MetFrag are not stable -> problem of MetFrag (
+    # according to authors) 2) An alternative of using a local CSV file is possible, but it takes too long because of
+    # the size of file (> 30GB)
     if params["database"].lower() == "pubchem":
         f.write("MetFragDatabaseType = PubChem\n")
     else:
@@ -23,9 +28,6 @@ def generateFiles(feature, params):
             sys.exit("Please check the path of a database file (.csv)")
     f.write("DatabaseSearchRelativeMassDeviation = {}\n".format(params["mass_tolerance_formula_search"]))
     f.write("FragmentPeakMatchRelativeMassDeviation = {}\n".format(params["mass_tolerance_ms2_peaks"]))
-    # f.write("LocalDatabasePath = /Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.csv\n")
-    # f.write("DatabaseSearchRelativeMassDeviation = 10\n")
-    # f.write("FragmentPeakMatchRelativeMassDeviation = 5\n")
     f.write("NeutralPrecursorMass = {}\n".format(mass))
     f.write("PrecursorIonMode = 1\n")   # It may contain adduct information. Refer https://ipb-halle.github.io/MetFrag/projects/metfragcl/
     if params["mode"] == "1":
