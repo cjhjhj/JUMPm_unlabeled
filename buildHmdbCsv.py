@@ -58,11 +58,11 @@ except ImportError:
 # Create a DataFrame for database entries and their decoys
 df = pd.DataFrame.from_dict(hmdbDict, orient = "columns")
 df = df[~df["MonoisotopicMass"].isna()]
-dfDecoy = df.copy()
 proton = 1.007276466812
-for i in range(dfDecoy.shape[0]):
-    dfDecoy.loc[i, "Identifier"] = "##Decoy_" + dfDecoy.loc[i, "Identifier"]
-    dfDecoy.loc[i, "MonoisotopicMass"] += 3 * proton # This way prevents 'SettingwithCopyWarning'
+dfDecoy = df.copy()
+dfDecoy["Identifier"] = "##Decoy_" + dfDecoy["Identifier"]
+dfDecoy["MonoisotopicMass"] = pd.to_numeric(dfDecoy["MonoisotopicMass"]) + 3 * proton
 df = df.append(dfDecoy, ignore_index = True)
 csvFile = os.path.splitext(xmlFile)[0] + ".csv"
 df.to_csv(csvFile, index = False)
+print("  Done")
