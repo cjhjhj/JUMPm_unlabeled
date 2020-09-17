@@ -5,8 +5,8 @@ output_name = test     # Used for unlabeled data analysis. Prefix "align_" will 
 skip_feature_detection = 0       # 0 = don't skip (i.e. perform feature detection), 1 = skip
 ## If you choose 'skip_feature_detection = 1', then specify absolute path(s) of feature file(s) separated by new line
 ## Note that .mzXML file(s) should be located in the same directory where the following .feature file(s) are
-feature_files = /home/htan/2019/IROA_library/pos/IROA_IS_POS_1/IROA_IS_POS_1.1.feature
-/home/htan/2019/IROA_library/pos/IROA_IS_POS_2/IROA_IS_POS_2.1.feature
+feature_files = /home/user/sample1/sample1.feature
+/home/user/sample2/sample2.feature
 
 ##################################
 # Parameters for data properties #
@@ -17,24 +17,23 @@ mode = -1              # 1 = positive mode, -1 = negative mode
 #############################
 # Library search parameters #
 #############################
-library_search = 1               # 0 = do not search a library,  1 = search a library  (library should be specified)
-library = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt
+library_search = 1               # 0 = do not search a library,  1 = search a library (library should be specified)
+library = /hpcf/authorized_apps/proteomics_apps/jumpm/python/library/MoNA/MoNA-export-LC-MS-MS_Negative_Mode.db
 library_rt_alignment = 1         # 0 = do not perform RT-alignment against library compounds, 1 = perform RT-alignment
 
 ##############################
 # Database search parameters #
 ##############################
 database_search = 1               # 0 = do not search a database,  1 = search a database (database should be specified)
-database = pubchem
-# database = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt       # CSV file for MetFrag
-metfrag = /Research/Projects/7Metabolomics/MetFrag/MetFrag2.4.5-CL.jar                  # Full path for MetFrag CLI (jar file)
+database = /hpcf/authorized_apps/proteomics_apps/jumpm/python/database/HMDB/hmdb_metabolites.csv # Full path for a database (.CSV) file
+metfrag = /hpcf/authorized_apps/proteomics_apps/jumpm/python/metfrag/MetFrag2.4.5-CL.jar         # Full path for MetFrag CLI (jar file)
 
 #####################################
 # Parameters for processing spectra #
 #####################################
 data_acquisition_mode = 2        # 1 = centroid, 2 = profile for full scan and centroid for MS/MS scan 
-first_scan_extraction = 1000     # the first scan used for search			 
-last_scan_extraction = 1500      # the last scan used for search
+first_scan_extraction = 1        # the first scan used for search			 
+last_scan_extraction = 1000000   # the last scan used for search
 isolation_window = 1             # isolation window size 1= +/-0.5
 mass_correction = 0              # 0 = no correction, 1 = MS1-based
 decharge_ppm = 10                # intrascan isotopic tolerance for decharging
@@ -77,8 +76,8 @@ tol_intra_ms2_consolidation = 10 # PPM tolerance for merging MS2 spectra within 
 tol_inter_ms2_consolidation = 20 # PPM tolerance for merging MS2 spectra between runs
 num_peaks_ms2_similarity = 30    # Number of peaks for comparing MS2 spectra between features and library/database entries
 
-#####################################################
-# Parameters for database search (used for MetFrag) #
-#####################################################
+#####################################################################
+# Parameters for database search using MetFrag (for advanced users) #
+#####################################################################
 mass_tolerance_formula_search = 10 # PPM tolerance for searching chemical formula in a database
 mass_tolerance_ms2_peaks = 10      # PPM tolerance for comparing MS2 peaks between features and database entries

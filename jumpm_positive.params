@@ -25,9 +25,8 @@ library_rt_alignment = 1         # 0 = do not perform RT-alignment against libra
 # Database search parameters #
 ##############################
 database_search = 1               # 0 = do not search a database,  1 = search a database (database should be specified)
-database = pubchem
-# database = /Research/Projects/7Metabolomics/library/Metabolome_library_v3.1.1.txt       # CSV file for MetFrag
-metfrag = /Research/Projects/7Metabolomics/MetFrag/MetFrag2.4.5-CL.jar                  # Full path for MetFrag CLI (jar file)
+database = /hpcf/authorized_apps/proteomics_apps/jumpm/python/database/HMDB/hmdb_metabolites.csv # Full path for a database (.CSV) file
+metfrag = /hpcf/authorized_apps/proteomics_apps/jumpm/python/metfrag/MetFrag2.4.5-CL.jar         # Full path for MetFrag CLI (jar file)
 
 #####################################
 # Parameters for processing spectra #
@@ -77,8 +76,8 @@ tol_intra_ms2_consolidation = 10 # PPM tolerance for merging MS2 spectra within 
 tol_inter_ms2_consolidation = 20 # PPM tolerance for merging MS2 spectra between runs
 num_peaks_ms2_similarity = 30    # Number of peaks for comparing MS2 spectra between features and library/database entries
 
-#####################################################
-# Parameters for database search (used for MetFrag) #
-#####################################################
+#####################################################################
+# Parameters for database search using MetFrag (for advanced users) #
+#####################################################################
 mass_tolerance_formula_search = 10 # PPM tolerance for searching chemical formula in a database
 mass_tolerance_ms2_peaks = 10      # PPM tolerance for comparing MS2 peaks between features and database entries
