@@ -235,7 +235,7 @@ def searchLibrary(full, paramFile):
                     res["no"].append(n)
                     res["feature_index"].append(i + 1)
                     res["feature_m/z"].append(fMz)
-                    res["feature_RT"].append(fRt)
+                    res["feature_RT"].append(fRt / 60)
                     res["feature_intensity"].append(fIntensity)
                     res["id"].append(libId)
                     res["formula"].append(libFormula)

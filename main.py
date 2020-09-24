@@ -47,9 +47,12 @@ try:
     featureArray = []
     if params["skip_feature_detection"] == "0":
         nFiles = len(inputFiles)
-        for i in range(nFiles):
-            f = detectFeatures(inputFiles[i], paramFile)
-            featureArray.append(f)
+        if nFiles > 0:
+            for i in range(nFiles):
+                f = detectFeatures(inputFiles[i], paramFile)
+                featureArray.append(f)
+        else:
+            sys.exit("  Please specify .mzXML file(s) and re-run")
     elif params["skip_feature_detection"] == "1":
         # Note that .feature file(s) and .mzXML file(s) should be in the same directory
         inputFiles = []

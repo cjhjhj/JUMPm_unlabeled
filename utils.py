@@ -65,23 +65,23 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     # This file contains "summarized" information of fully-aligned features
     # e.g. mean m/z, mean intensity, mean RT of fully-aligned features and so on
     #      width and SNratio are from the reference run
-    mzCol = [col for col in full.dtype.names if col.lower().endswith("_mz")]
-    rtCol = [col for col in full.dtype.names if col.lower().endswith("_rt")]
-    intensityCol = [col for col in full.dtype.names if col.lower().endswith("_intensity")]
-    chargeCol = [col for col in full.dtype.names if col.lower().endswith("_z")]
-    minRtCol = [col for col in full.dtype.names if col.lower().endswith("_minrt")]
-    maxRtCol = [col for col in full.dtype.names if col.lower().endswith("_maxrt")]
-    snCol = [col for col in full.dtype.names if col.lower().endswith("_snratio")]
+    mzCols = [col for col in full.dtype.names if col.lower().endswith("_mz")]
+    rtCols = [col for col in full.dtype.names if col.lower().endswith("_rt")]
+    intensityCols = [col for col in full.dtype.names if col.lower().endswith("_intensity")]
+    chargeCols = [col for col in full.dtype.names if col.lower().endswith("_z")]
+    minRtCols = [col for col in full.dtype.names if col.lower().endswith("_minrt")]
+    maxRtCols = [col for col in full.dtype.names if col.lower().endswith("_maxrt")]
+    snCols = [col for col in full.dtype.names if col.lower().endswith("_snratio")]
 
     df = pd.DataFrame.from_records(full)
     res = pd.DataFrame()
-    res["feature_m/z"] = df[mzCol].mean(axis=1)
-    res["feature_RT"] = df[rtCol].mean(axis=1)
-    res["feature_intensity"] = df[intensityCol].mean(axis=1)
-    res["feature_SNratio"] = df[snCol].mean(axis=1)
-    res["feature_width"] = pd.DataFrame((df[maxRtCol].values - df[minRtCol].values) / 60).mean(axis=1)
+    res["feature_m/z"] = df[mzCols].mean(axis=1)
+    res["feature_RT"] = df[rtCols].mean(axis=1)
+    res["feature_intensity"] = df[intensityCols].mean(axis=1)
+    res["feature_SNratio"] = df[snCols].mean(axis=1)
+    res["feature_width"] = pd.DataFrame((df[maxRtCols].values - df[minRtCols].values) / 60).mean(axis=1)
     # Handling charges
-    res["feature_z"] = df[chargeCol].mode(axis=1)[0]
+    res["feature_z"] = df[chargeCols].mode(axis=1)[0]
     res["feature_z"][res["feature_z"] == 0] = 1
     res["feature_z"] = res["feature_z"].astype(int)
     if params["mode"] == "-1":
@@ -90,6 +90,8 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     elif params["mode"] == "1":
         res["feature_ion"] = "[M+" + res["feature_z"].astype(str) + "H]" + res["feature_z"].astype(str) + "+"
         res["feature_ion"] = res["feature_ion"].replace("[M+1H]1+", "[M+H]+")
+    for intensityCol in intensityCols:
+        res[intensityCol] = df[intensityCol]
 
     # Add the mean m/z of feature and its charge state to the beginning of MS2 spectrum (similar to .dta file)
     for i in range(nFeatures):
@@ -99,12 +101,14 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     res["MS2"] = ms2
 
     # Write the summarized fully-aligned features to a file
-    fullName = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
     res = res.sort_values(by="feature_m/z", ignore_index=True)
     res["feature_num"] = res.index + 1  # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
-    resColumns = ["feature_num", "feature_ion", "feature_z", "feature_m/z", "feature_RT",
-                 "feature_width", "feature_SNratio", "feature_intensity"]
-    res.to_csv(fullName, columns=resColumns, index=False, sep="\t")
+    outColumns = ["feature_num", "feature_ion", "feature_z", "feature_m/z", "feature_RT",
+                 "feature_width", "feature_SNratio"] + intensityCols
+    resOut = res[outColumns].copy()
+    resOut["feature_RT"] = resOut["feature_RT"] / 60    # Change the unit to minute
+    fullName = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
+    resOut.to_csv(fullName, index=False, sep="\t")
 
     # Write MS2 spectra to files
     ms2Path = os.path.join(filePath, "MS2")

@@ -96,6 +96,7 @@ def searchDatabase(features, paramFile):
     progress.increment(nTot)
     pool.close()
     res = pd.concat(res.get(), ignore_index = True)
+    res["feature_RT"] = res["feature_RT"] / 60  # Change the unit to minute (for output)
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
     outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".database_matches")
     res.to_csv(outputFile, sep = "\t", index = False)
