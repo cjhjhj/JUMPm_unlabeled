@@ -38,7 +38,7 @@ class progressBar:
         self.block = 0
         self.status = ""
 
-    def increment(self, nIncrement = None):
+    def increment(self, nIncrement=None):
         if nIncrement == None:
             self.count += 1
         else:
@@ -56,6 +56,48 @@ class progressBar:
         sys.stdout.flush()
 
 
+def summarizeFeatures(full, params):
+    # Input arguments
+    # 1. full: numpy recarray of fully-aligned features
+    # 2. params: dictionary of parameters
+
+    ####################################
+    # Summarize fully-aligned features #
+    ####################################
+    mzCols = [col for col in full.dtype.names if col.lower().endswith("_mz")]
+    rtCols = [col for col in full.dtype.names if col.lower().endswith("_rt")]
+    intensityCols = [col for col in full.dtype.names if col.lower().endswith("_intensity")]
+    chargeCols = [col for col in full.dtype.names if col.lower().endswith("_z")]
+    minRtCols = [col for col in full.dtype.names if col.lower().endswith("_minrt")]
+    maxRtCols = [col for col in full.dtype.names if col.lower().endswith("_maxrt")]
+    snCols = [col for col in full.dtype.names if col.lower().endswith("_snratio")]
+
+    df = pd.DataFrame.from_records(full)
+    res = pd.DataFrame()
+    res["feature_m/z"] = df[mzCols].mean(axis=1)
+    res["feature_RT"] = df[rtCols].mean(axis=1) / 60
+    res["feature_intensity"] = df[intensityCols].mean(axis=1)
+    res["feature_SNratio"] = df[snCols].mean(axis=1)
+    res["feature_width"] = pd.DataFrame((df[maxRtCols].values - df[minRtCols].values) / 60).mean(axis=1)
+    # Handling charges
+    res["feature_z"] = df[chargeCols].mode(axis=1)[0]
+    res["feature_z"][res["feature_z"] == 0] = 1
+    res["feature_z"] = res["feature_z"].astype(int)
+    if params["mode"] == "-1":
+        res["feature_ion"] = "[M-" + res["feature_z"].astype(str) + "H]" + res["feature_z"].astype(str) + "-"
+        res["feature_ion"] = res["feature_ion"].replace("[M-1H]1-", "[M-H]-")
+    elif params["mode"] == "1":
+        res["feature_ion"] = "[M+" + res["feature_z"].astype(str) + "H]" + res["feature_z"].astype(str) + "+"
+        res["feature_ion"] = res["feature_ion"].replace("[M+1H]1+", "[M+H]+")
+    for intensityCol in intensityCols:
+        res[intensityCol] = df[intensityCol]
+    colNames = ["feature_ion", "feature_z", "feature_m/z", "feature_RT", "feature_width",
+                "feature_SNratio"] + intensityCols
+    res = res[colNames]
+    return res
+
+
+'''
 def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
 
@@ -102,11 +144,12 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
 
     # Write the summarized fully-aligned features to a file
     res = res.sort_values(by="feature_m/z", ignore_index=True)
-    res["feature_num"] = res.index + 1  # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
+    res[
+        "feature_num"] = res.index + 1  # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
     outColumns = ["feature_num", "feature_ion", "feature_z", "feature_m/z", "feature_RT",
-                 "feature_width", "feature_SNratio"] + intensityCols
+                  "feature_width", "feature_SNratio"] + intensityCols
     resOut = res[outColumns].copy()
-    resOut["feature_RT"] = resOut["feature_RT"] / 60    # Change the unit to minute
+    resOut["feature_RT"] = resOut["feature_RT"] / 60  # Change the unit to minute
     fullName = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
     resOut.to_csv(fullName, index=False, sep="\t")
 
@@ -122,10 +165,58 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
 
     # Save fully-aligned features with their MS2 spectra (i.e. res) for debugging purpose
     # When the pipeline gets mature, this part needs to be removed
-    pickle.dump(res, open(os.path.join(filePath, ".fully_aligned_feature.pickle"), "wb"))    # Make the file be hidden
+    pickle.dump(res, open(os.path.join(filePath, ".fully_aligned_feature.pickle"), "wb"))  # Make the file be hidden
 
     return res
+'''
 
+
+def processQuantityData(df, params):
+    print("  Quantity information")
+    print("  ====================")
+    intensityCols = [col for col in df.columns if col.lower().endswith("_intensity")]
+    expr = df[intensityCols]
+
+    # Calculation and print-out loading bias information
+    print("  Loading-bias summary")
+    sampleNames = expr.columns
+    rowMeans = expr.mean(axis=1)
+    lexpr = np.log2(expr.div(rowMeans, axis=0))
+    nFeatures, nSamples = lexpr.shape
+    idx = pd.Series([True] * nFeatures)
+    for i in intensityCols:
+        idx = idx & (lexpr[i] > lexpr[i].quantile(q=0.1)) & (lexpr[i] < lexpr[i].quantile(q=0.9))
+    meanIntensity = 2 ** (lexpr.loc[idx, :].mean(axis=0)) * 100
+    sdVal = lexpr.loc[idx, :].std(axis=0)
+    sdIntensity = ((2 ** sdVal - 1) + (1 - 2 ** (-sdVal))) / 2 * 100
+    semIntensity = sdIntensity / np.sqrt(len(idx))
+    print("  Sample_name\tMean[%]\tSD[%]\tSEM[%]\t#features")
+    for i in range(expr.shape[1]):
+        print("  {}\t{:.2f}\t{:.2f}\t{:.2f}\t{}".format(intensityCols[i].replace("_intensity", ""), meanIntensity[i],
+                                                        sdIntensity[i], semIntensity[i], len(idx)))
+
+    # Normalization using trimmed-mean values (loading-bias correction)
+    lexpr = np.log2(expr)
+    if params["skip_loading_bias_correction"] == 0:
+        # Parameters for normalization
+        cutoff = np.nanquantile(lexpr.to_numpy(), q=0.1)  # 10% quantile of overall intensities
+        # This is the original implementation (as the same as Perl-pipeline), but it may be too stringent
+        idx = pd.Series([True] * nFeatures)
+        for i in intensityCols:
+            idx = idx & (lexpr[lexpr > cutoff][i] > lexpr[lexpr > cutoff][i].quantile(q=0.1)) & (
+                        lexpr[lexpr > cutoff][i] > lexpr[lexpr > cutoff][i].quantile(q=0.9))
+        meanIntensity = lexpr.loc[idx, :].mean(axis=0)
+        meanIntensity = lexpr[lexpr > cutoff].mean(axis=0)
+        normFactor = meanIntensity - np.mean(meanIntensity)
+        lexpr = lexpr - normFactor
+
+    # Replace missing values (i.e. nan) with the 1/2 of the global minimum intensity
+    minIntensity = np.nanmin(lexpr)
+    lexpr = lexpr.fillna(minIntensity - 1)  # Half of the global minimum intensity (at log2-scale)
+    lexpr += lexpr.isna() * pd.DataFrame(1e-2 * np.random.uniform(0, 1, size=(lexpr.shape)),
+                                         columns=lexpr.columns)  # Add small random number for numerical stability
+    df[intensityCols] = 2 ** lexpr
+    return df
 
 def generateFeatureFile(full, partial, unaligned, params):
     # Input arguments
@@ -145,11 +236,23 @@ def generateFeatureFile(full, partial, unaligned, params):
     fullName = os.path.join(filePath, params["output_name"] + "_fully_aligned.feature")
     dfFull = pd.DataFrame(full)
     dfFull["meanMz"] = dfFull.filter(regex=(".*mz$")).mean(axis=1)
-    dfFull = dfFull.sort_values(by = "meanMz")  # To make it consistent with the "summarized feature" file, features are sorted by mean m/z
+    dfFull = dfFull.sort_values(by="meanMz", ignore_index=True)  # Features are sorted by mean m/z
     colNames = dfFull.columns.tolist()
     colNames = colNames[-1:] + colNames[:-1]
     dfFull = dfFull[colNames]
-    dfFull.to_csv(fullName, index = False, sep = "\t")
+    dfFull.to_csv(fullName, index=False, sep="\t")
+
+    #############################################
+    # Write "summarized" fully-aligned features #
+    #############################################
+    fullName2 = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
+    dfFull2 = summarizeFeatures(full, params)
+    dfFull2 = dfFull2.sort_values(by="feature_m/z", ignore_index=True)  # Features are sorted by "feature_m/z"
+    dfFull2.insert(loc=0, column="feature_num", value=dfFull2.index + 1)
+
+    # Processing of quantity data (missing value imputation, normalization, etc.)
+    dfFull2 = processQuantityData(dfFull2, params)
+    dfFull2.to_csv(fullName2, index=False, sep="\t")
 
     ##############################################
     # Write partially-aligned features, if exist #
@@ -158,7 +261,7 @@ def generateFeatureFile(full, partial, unaligned, params):
         dfPartial = pd.DataFrame(partial)
         if dfPartial.shape[0] > 0:
             partialName = os.path.join(filePath, params["output_name"] + "_partially_aligned.feature")
-            dfPartial.to_csv(partialName, index = False, sep = "\t")
+            dfPartial.to_csv(partialName, index=False, sep="\t")
     else:
         dfPartial = None
 
@@ -172,7 +275,7 @@ def generateFeatureFile(full, partial, unaligned, params):
             unName = [col for col in un.dtype.names if col.endswith('_mz')][0]
             unName = os.path.join(filePath, re.sub("_mz", "", unName) + "_unaligned.feature")
             dfUn = pd.DataFrame(un)
-            dfUn.to_csv(unName, index = False, sep = "\t")
+            dfUn.to_csv(unName, index=False, sep="\t")
             dfArrayUnaligned.append(dfUn)
     else:
         dfArrayUnaligned = None

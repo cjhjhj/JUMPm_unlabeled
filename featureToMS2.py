@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, re, time, shutil, utils, numpy as np, pandas as pd
+import os, re, pickle, utils, numpy as np, pandas as pd
 from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
 
@@ -128,6 +128,10 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     featureToScan = np.empty((nFeatures, nFiles), dtype=object)
     featureToSpec = np.empty((nFeatures, nFiles), dtype=object)
 
+    #################################################
+    # Assignment of MS2 spectra to features         #
+    # Consolidation of MS2 spectra for each feature #
+    #################################################
     m = -1  # Index for input files
     for file in mzxmlFiles:
         m += 1
@@ -221,11 +225,41 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
             spec = interConsolidation(featureToSpec[i, :], tolInterMS2Consolidation)
             specArray = np.append(specArray, spec)
 
+    ###############################
+    # MS2 processing for features #
+    ###############################
     # "specArray" is the list of (consolidated) MS2 spectra
     # specArray[i] is the MS2 spectrum corresponding to the i-th feature
     # If there's no MS2 spectrum, then specArray[i] is None
-    df = utils.generateSummarizedFeatureFile(nFeatures, full, specArray, params)
+    df = utils.summarizeFeatures(full, params)
+    # Add the mean m/z of feature and its charge state to the beginning of MS2 spectrum (similar to .dta file)
+    for i in range(nFeatures):
+        if specArray[i] is not None:
+            specArray[i]["mz"] = np.insert(specArray[i]["mz"], 0, df["feature_m/z"].iloc[i])
+            specArray[i]["intensity"] = np.insert(specArray[i]["intensity"], 0, df["feature_z"].iloc[i])
+    df["MS2"] = specArray
+    df = df.sort_values(by="feature_m/z", ignore_index=True)  # Features are sorted by "feature_m/z"
+    df.insert(loc=0, column="feature_num", value=df.index + 1)
+    # df["feature_num"] = df.index + 1  # Update "feature_num" according to the ascending order of "feature_m/z" (as sorted)
 
+    # Write MS2 spectra to files
+    filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
+    ms2Path = os.path.join(filePath, "MS2")
+    if not os.path.exists(ms2Path):
+        os.mkdir(ms2Path)
+    for i in range(df.shape[0]):
+        if df["MS2"].iloc[i] is not None:
+            fileName = os.path.join(ms2Path, "f" + str(i + 1) + ".MS2")
+            dfMS2 = pd.DataFrame.from_dict(df["MS2"].iloc[i])
+            dfMS2.to_csv(fileName, index=False, header=False, sep="\t")
+
+    # Save fully-aligned features with their MS2 spectra (i.e. res) for debugging purpose
+    # When the pipeline gets mature, this part needs to be removed
+    pickle.dump(df, open(os.path.join(filePath, ".fully_aligned_feature.pickle"), "wb"))    # Make the file be hidden
+
+    ##########################
+    # Handling mzXML file(s) #
+    ##########################
     # Move mzXML files to the directory(ies) where individual .feature files are located
     if params["skip_feature_detection"] == "0":
         for file in mzxmlFiles:

@@ -557,7 +557,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             print("  Since you have only two runs, there's no partially-aligned features")
     else:
         print("  According to the parameter setting, no feature is added to the set of fully-aligned ones")
-
+    print()
     return full, partial, unaligned
 
 
