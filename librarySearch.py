@@ -89,7 +89,7 @@ def searchLibrary(full, paramFile):
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
     # matchMzTol = 10  # Unit of ppm
-    matchMzTol = float(params["library_mz_tolerance"])  # Unit of ppm
+    matchMzTol = float(params["library_mass_tolerance"])  # Unit of ppm
     nFeatures = full.shape[0]
 
     #############################
