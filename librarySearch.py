@@ -88,7 +88,8 @@ def searchLibrary(full, paramFile):
     else:
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
-    matchMzTol = 10  # Unit of ppm
+    # matchMzTol = 10  # Unit of ppm
+    matchMzTol = float(params["library_mz_tolerance"])  # Unit of ppm
     nFeatures = full.shape[0]
 
     #############################
@@ -250,6 +251,8 @@ def searchLibrary(full, paramFile):
                     res["collision_energy"].append(libEnergy)
                     if rtShift is not None:
                         rtShift = rtShift / 60  # Convert to "minute"
+                    else:
+                        rtShift = "NA"
                     res["RT_shift"].append(rtShift)
                     # res["RT_score"].append(abs(-np.log10(pRt)))  # Scores are transformed by -log10
                     # res["MS2_score"].append(abs(-np.log10(pMS2)))
