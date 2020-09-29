@@ -169,7 +169,7 @@ def searchLibrary(full, paramFile):
     ########################################
     # Match features and library compounds
     print("  Features are being compared with library compounds")
-    res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [], "feature_intensity": [],
+    res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [],
            "id": [], "formula": [], "name": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
            "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}
     intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
@@ -262,6 +262,9 @@ def searchLibrary(full, paramFile):
 
     conn.close()
     res = pd.DataFrame.from_dict(res)
+    resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+              ["id", "formula", "name", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
+    res = res[resCols]
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
     outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".library_matches")
     res.to_csv(outputFile, sep = "\t", index = False)
