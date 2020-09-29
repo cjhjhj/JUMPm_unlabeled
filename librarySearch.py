@@ -249,7 +249,8 @@ def searchLibrary(full, paramFile):
                     res["InchiKey"].append(libInchiKey)
                     res["collision_energy"].append(libEnergy)
                     if rtShift is not None:
-                        res["RT_shift"].append(rtShift / 60)
+                        rtShift = rtShift / 60  # Convert to "minute"
+                    res["RT_shift"].append(rtShift)
                     # res["RT_score"].append(abs(-np.log10(pRt)))  # Scores are transformed by -log10
                     # res["MS2_score"].append(abs(-np.log10(pMS2)))
 
