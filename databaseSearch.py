@@ -67,7 +67,7 @@ def runMetFrag(feature, params):
         df["feature_index"] = feature["feature_num"]
         df["feature_m/z"] = feature["feature_m/z"]
         df["feature_RT"] = feature["feature_RT"]
-        intensityCols = [col for col in feature.columns if col.lower().endswith("_intensity")]
+        intensityCols = [col for col in feature.keys() if col.lower().endswith("_intensity")]
         for c in intensityCols:
             df[c] = feature[c]
         # df["feature_intensity"] = feature["feature_intensity"]
