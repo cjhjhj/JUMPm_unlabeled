@@ -172,6 +172,10 @@ def searchLibrary(full, paramFile):
     res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [], "feature_intensity": [],
            "id": [], "formula": [], "name": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
            "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}
+    intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
+    for c in intensityCols:
+        res[c] = []
+
     n = 0
     progress = utils.progressBar(nFeatures)
     for i in range(nFeatures):
@@ -183,7 +187,7 @@ def searchLibrary(full, paramFile):
             continue
         fMz = full["feature_m/z"].iloc[i]
         fRt = full["feature_RT"].iloc[i]
-        fIntensity = full["feature_intensity"].iloc[i]
+        fIntensity = full[intensityCols].iloc[i]
         if params["mode"] == "1":  # Positive mode
             fMass = fZ * (fMz - proton)
         elif params["mode"] == "-1":  # Negative mode
@@ -236,7 +240,8 @@ def searchLibrary(full, paramFile):
                     res["feature_index"].append(i + 1)
                     res["feature_m/z"].append(fMz)
                     res["feature_RT"].append(fRt / 60)
-                    res["feature_intensity"].append(fIntensity)
+                    for c in intensityCols:
+                        res[c].append(fIntensity[c])
                     res["id"].append(libId)
                     res["formula"].append(libFormula)
                     res["name"].append(libName)

@@ -228,11 +228,7 @@ def generateFeatureFile(full, partial, unaligned, params):
     if not os.path.exists(filePath):
         os.mkdir(filePath)
 
-    ################################
-    # Write fully-aligned features #
-    ################################
-    # This file contains fully-aligned features with run-specific information
-    # Since the run-specific information is required for MS2 processing, it should be kept here
+    # Organize fully-aligned features
     fullName = os.path.join(filePath, params["output_name"] + "_fully_aligned.feature")
     dfFull = pd.DataFrame(full)
     dfFull["meanMz"] = dfFull.filter(regex=(".*mz$")).mean(axis=1)
@@ -240,11 +236,8 @@ def generateFeatureFile(full, partial, unaligned, params):
     colNames = dfFull.columns.tolist()
     colNames = colNames[-1:] + colNames[:-1]
     dfFull = dfFull[colNames]
-    dfFull.to_csv(fullName, index=False, sep="\t")
 
-    #############################################
-    # Write "summarized" fully-aligned features #
-    #############################################
+    # Organize "summarized" fully-aligned features
     fullName2 = os.path.join(filePath, params["output_name"] + "_summarized_fully_aligned.feature")
     dfFull2 = summarizeFeatures(full, params)
     dfFull2 = dfFull2.sort_values(by="feature_m/z", ignore_index=True)  # Features are sorted by "feature_m/z"
@@ -252,6 +245,15 @@ def generateFeatureFile(full, partial, unaligned, params):
 
     # Processing of quantity data (missing value imputation, normalization, etc.)
     dfFull2 = processQuantityData(dfFull2, params)
+    intensityCols = [col for col in dfFull2.columns if col.lower().endswith("_intensity")]
+    for col in intensityCols:
+        dfFull[col] = dfFull2[col]  # Replace intensity values of dfFull with those of dfFull2 (preprocessed)
+
+    # This file contains fully-aligned features with run-specific information
+    # Since the run-specific information is required for MS2 processing, it should be kept
+    dfFull.to_csv(fullName, index=False, sep="\t")
+    # This file contains "summarized" fully-aligned features
+    # Except intensity, all feature information is summarized over runs
     dfFull2.to_csv(fullName2, index=False, sep="\t")
 
     ##############################################

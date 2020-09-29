@@ -67,9 +67,12 @@ def runMetFrag(feature, params):
         df["feature_index"] = feature["feature_num"]
         df["feature_m/z"] = feature["feature_m/z"]
         df["feature_RT"] = feature["feature_RT"]
-        df["feature_intensity"] = feature["feature_intensity"]
-        columns = ["feature_index", "feature_m/z", "feature_RT", "feature_intensity",
-                   "Identifier", "MolecularFormula", "CompoundName", "SMILES", "InChIKey", "Score"]
+        intensityCols = [col for col in feature.columns if col.lower().endswith("_intensity")]
+        for c in intensityCols:
+            df[c] = feature[c]
+        # df["feature_intensity"] = feature["feature_intensity"]
+        columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                  ["Identifier", "MolecularFormula", "CompoundName", "SMILES", "InChIKey", "Score"]
         df = df[columns]
         os.remove(paramFile)
         os.remove(ms2File)
