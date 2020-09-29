@@ -157,13 +157,15 @@ def searchLibrary(full, paramFile):
         lL = truncatedMean - 3 * truncatedSd
         uL = truncatedMean + 3 * truncatedSd
         ind = np.where((y >= lL) & (y <= uL))[0]
-
-        # LOESS fitting and calibrate feature RT
-        mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
-        full["feature_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
-
-        # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
-        ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
+        if len(ind) >= 50:  # At least 50 data points for LOESS
+            # LOESS fitting and calibrate feature RT
+            mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
+            full["feature_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
+            # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
+            ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
+        else:
+            print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
+            params["library_rt_alignment"] = "0"
 
     ########################################
     # Match features and library compounds #
