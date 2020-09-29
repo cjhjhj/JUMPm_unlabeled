@@ -248,7 +248,8 @@ def searchLibrary(full, paramFile):
                     res["SMILES"].append(libSmiles)
                     res["InchiKey"].append(libInchiKey)
                     res["collision_energy"].append(libEnergy)
-                    res["RT_shift"].append(rtShift / 60)
+                    if rtShift is not None:
+                        res["RT_shift"].append(rtShift / 60)
                     # res["RT_score"].append(abs(-np.log10(pRt)))  # Scores are transformed by -log10
                     # res["MS2_score"].append(abs(-np.log10(pMS2)))
 
