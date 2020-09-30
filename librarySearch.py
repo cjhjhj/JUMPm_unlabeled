@@ -88,8 +88,10 @@ def searchLibrary(full, paramFile):
     else:
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
-    # matchMzTol = 10  # Unit of ppm
     matchMzTol = float(params["library_mass_tolerance"])  # Unit of ppm
+    # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
+    # So, within this function, full["feature_RT"] needs to be converted to the unit of second
+    full["feature_RT"] = full["feature_RT"] * 60
     nFeatures = full.shape[0]
 
     #############################
