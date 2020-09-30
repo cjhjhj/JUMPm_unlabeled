@@ -123,7 +123,9 @@ def searchLibrary(full, paramFile):
         x, y = np.array([]), np.array([])  # To be used for RT-alignment
         for i in range(nFeatures):
             compMz = full["feature_m/z"].iloc[i]
-            compRt = full["feature_RT"].iloc[i]
+            # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
+            # So, within this function, full["feature_RT"] needs to be converted to the unit of second
+            compRt = full["feature_RT"].iloc[i] * 60
             compZ = full["feature_z"].iloc[i]
             if params["mode"] == "1":  # Positive mode
                 compMass = compZ * (compMz - proton)
