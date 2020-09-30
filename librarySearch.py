@@ -89,9 +89,6 @@ def searchLibrary(full, paramFile):
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
     matchMzTol = float(params["library_mass_tolerance"])  # Unit of ppm
-    # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
-    # So, within this function, full["feature_RT"] needs to be converted to the unit of second
-    full["feature_RT"] = full["feature_RT"] * 60
     nFeatures = full.shape[0]
 
     #############################
@@ -191,7 +188,9 @@ def searchLibrary(full, paramFile):
         if np.isnan(fZ) or fSpec is None:  # When MS2 spectrum of the feature is not defined, skip it
             continue
         fMz = full["feature_m/z"].iloc[i]
-        fRt = full["feature_RT"].iloc[i]
+        # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
+        # So, within this function, full["feature_RT"] needs to be converted to the unit of second
+        fRt = full["feature_RT"].iloc[i] * 60
         fIntensity = full[intensityCols].iloc[i]
         if params["mode"] == "1":  # Positive mode
             fMass = fZ * (fMz - proton)
@@ -244,7 +243,7 @@ def searchLibrary(full, paramFile):
                     res["no"].append(n)
                     res["feature_index"].append(i + 1)
                     res["feature_m/z"].append(fMz)
-                    res["feature_RT"].append(fRt / 60)
+                    res["feature_RT"].append(fRt / 60)  # For output, the unit of RT is minute
                     for c in intensityCols:
                         res[c].append(fIntensity[c])
                     res["id"].append(libId)
