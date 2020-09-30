@@ -90,6 +90,9 @@ def searchLibrary(full, paramFile):
     proton = 1.007276466812
     matchMzTol = float(params["library_mass_tolerance"])  # Unit of ppm
     nFeatures = full.shape[0]
+    # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
+    # So, within this function, full["feature_RT"] needs to be converted to the unit of second
+    full["feature_RT"] = full["feature_RT"] * 60
 
     #############################
     # Open sqlite-based library #
@@ -123,9 +126,7 @@ def searchLibrary(full, paramFile):
         x, y = np.array([]), np.array([])  # To be used for RT-alignment
         for i in range(nFeatures):
             compMz = full["feature_m/z"].iloc[i]
-            # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
-            # So, within this function, full["feature_RT"] needs to be converted to the unit of second
-            compRt = full["feature_RT"].iloc[i] * 60
+            compRt = full["feature_RT"].iloc[i]
             compZ = full["feature_z"].iloc[i]
             if params["mode"] == "1":  # Positive mode
                 compMass = compZ * (compMz - proton)
@@ -190,9 +191,7 @@ def searchLibrary(full, paramFile):
         if np.isnan(fZ) or fSpec is None:  # When MS2 spectrum of the feature is not defined, skip it
             continue
         fMz = full["feature_m/z"].iloc[i]
-        # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
-        # So, within this function, full["feature_RT"] needs to be converted to the unit of second
-        fRt = full["feature_RT"].iloc[i] * 60
+        fRt = full["feature_RT"].iloc[i]
         fIntensity = full[intensityCols].iloc[i]
         if params["mode"] == "1":  # Positive mode
             fMass = fZ * (fMz - proton)
@@ -276,5 +275,8 @@ def searchLibrary(full, paramFile):
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
     outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".library_matches")
     res.to_csv(outputFile, sep = "\t", index = False)
+
+    # RT unit of "full" needs to be converted back to minute for subsequent procedures (i.e. database search)
+    full["feature_RT"] = full["feature_RT"] / 60
 
     return res
