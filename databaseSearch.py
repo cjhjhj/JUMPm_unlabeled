@@ -8,7 +8,10 @@ def generateFiles(feature, params):
     outputName = "metfrag_result_" + str(num)
     outputFile = "metfrag_result_" + str(num) + ".csv"
     proton = 1.007276466812
-    mass = feature["feature_z"] * (feature["feature_m/z"] - proton) # Neutral (monoisotopic) mass
+    if params["mode"] == "1":
+        mass = feature["feature_z"] * (feature["feature_m/z"] - proton) # Neutral (monoisotopic) mass
+    elif params["mode"] == "-1":
+        mass = feature["feature_z"] * (feature["feature_m/z"] + proton) # Neutral (monoisotopic) mass
 
     # Parameter file for MetFrag
     f = open(paramFile, "w")
