@@ -11,12 +11,14 @@ def getParams(paramFile):
             line = re.sub(r'\s*', '', line)  # Remove all whitespaces
 
             # Exception for "feature_files" parameter
-            if "feature_files" in parameters and line.endswith("feature"):
+            if "feature_files" in parameters and line.endswith(".feature"):
                 parameters["feature_files"].append(line)
+            elif "library" in parameters and line.endswith(".db"):
+                parameters["library"].append(line)
             else:
                 key = line.split('=')[0]
                 val = line.split('=')[1]
-                if key == "feature_files":
+                if key == "feature_files" or key == "library":
                     parameters[key] = [val]
                 else:
                     parameters[key] = val
