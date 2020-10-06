@@ -100,7 +100,6 @@ def searchLibrary(full, paramFile):
     allRes = pd.DataFrame()
     for libFile in params["library"]:
         print("  Library {} is being loaded".format(os.path.basename(libFile)))
-        libFile = params["library"]
         try:
             conn = sqlite3.connect(libFile)
         except:
