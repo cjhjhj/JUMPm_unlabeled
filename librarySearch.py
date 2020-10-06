@@ -98,7 +98,7 @@ def searchLibrary(full, paramFile):
     # Open sqlite-based library #
     #############################
     allRes = pd.DataFrame()
-    for libFile in params("library"):
+    for libFile in params["library"]:
         print("  Library {} is being loaded".format(os.path.basename(libFile)))
         libFile = params["library"]
         try:
