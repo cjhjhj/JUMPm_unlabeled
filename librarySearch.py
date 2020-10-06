@@ -273,7 +273,7 @@ def searchLibrary(full, paramFile):
         resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
                   ["id", "formula", "name", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
         res = res[resCols]
-        allRes = allRes.append(res)
+        allRes = allRes.append(res, ignore_index = True)
 
     filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
     outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".library_matches")
