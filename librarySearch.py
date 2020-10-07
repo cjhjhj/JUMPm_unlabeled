@@ -98,7 +98,9 @@ def searchLibrary(full, paramFile):
     # Open sqlite-based library #
     #############################
     allRes = pd.DataFrame()
+    nLibs = 1
     for libFile in params["library"]:
+        doAlignment = params["library_rt_alignment"]
         print("  Library {} is being loaded".format(os.path.basename(libFile)))
         try:
             conn = sqlite3.connect(libFile)
@@ -109,19 +111,19 @@ def searchLibrary(full, paramFile):
         # RT-alignment between features and library entries #
         #####################################################
         # Check whether 'rt' column of the library is numeric value or not
-        if params["library_rt_alignment"] == "1":
+        if doAlignment == "1":
             preQuery = r"SELECT rt FROM library ORDER BY ROWID ASC LIMIT 1"
             preDf = pd.read_sql_query(preQuery, conn)
             if "float" not in str(preDf["rt"].dtype):
-                params["library_rt_alignment"] = "2"
+                doAlignment = "2"
 
-        if params["library_rt_alignment"] == "0":
+        if doAlignment == "0":
             print("  According to the parameter, RT-alignment is not performed between features and library compounds")
-        elif params["library_rt_alignment"] == "2":
+        elif doAlignment == "2":
             print("  Although the parameter is set to perform RT-alignment against the library, there is/are non-numeric value(s) in the library")
             print("  Therefore, RT-alignment is not performed")
-            params["library_rt_alignment"] = "0"
-        elif params["library_rt_alignment"] == "1":
+            doAlignment = "0"
+        elif doAlignment == "1":
             print("  RT-alignment is being performed between features and library compounds")
             # Preparation of LOESS-based RT alignment
             x, y = np.array([]), np.array([])  # To be used for RT-alignment
@@ -220,7 +222,7 @@ def searchLibrary(full, paramFile):
                         pMs2 = max(np.finfo(float).eps, pMs2)   # Prevent the underflow caused by 0
 
                         # Calculate the (similarity?) score based on RT-shift
-                        if params["library_rt_alignment"] == "1":
+                        if doAlignment == "1":
                             rtShift = fRt - df["rt"].iloc[j]
                             pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score (the smaller, the better)
                             pRt = max(np.finfo(float).eps, pRt)
@@ -255,7 +257,7 @@ def searchLibrary(full, paramFile):
                         res["InchiKey"].append(libInchiKey)
                         res["collision_energy"].append(libEnergy)
                         if rtShift is not None:
-                            rtShift = rtShift / 60  # Convert to "minute"
+                            rtShift = abs(rtShift) / 60  # Convert to "minute"
                         else:
                             rtShift = "NA"
                         res["RT_shift"].append(rtShift)
@@ -273,11 +275,11 @@ def searchLibrary(full, paramFile):
         resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
                   ["id", "formula", "name", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
         res = res[resCols]
+        filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
+        outputFile = os.path.join(filePath, "align_" + params["output_name"] + "." + str(nLibs) + ".library_matches")
+        res.to_csv(outputFile, sep="\t", index=False)
         allRes = allRes.append(res, ignore_index = True)
-
-    filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
-    outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".library_matches")
-    allRes.to_csv(outputFile, sep = "\t", index = False)
+        nLibs += 1
 
     # RT unit of "full" needs to be converted back to minute for subsequent procedures (i.e. database search)
     full["feature_RT"] = full["feature_RT"] / 60
