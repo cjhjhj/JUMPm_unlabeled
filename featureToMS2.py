@@ -3,7 +3,6 @@
 import os, re, pickle, utils, numpy as np, pandas as pd
 # from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
-from sklearn.neighbors import KernelDensity
 
 
 def groupMzValues(mz, ppm):
