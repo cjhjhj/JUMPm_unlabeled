@@ -1,36 +1,46 @@
 #!/usr/bin/python
 
 import os, re, pickle, utils, numpy as np, pandas as pd
-from numpy.lib.recfunctions import append_fields
+# from numpy.lib.recfunctions import append_fields
 from pyteomics import mzxml
+from sklearn.neighbors import KernelDensity
 
-def ms2Consolidation(refSpec, compSpec, tol):
-    # refSpec: reference spectrum = {"mz": np.array, "intensity": np.array}
-    # compSpec: compared spectrum = {"mz": np.array, "intensity": np.array}
 
-    # To speed up the procedure, np.array is converted to python list
-    refMz = refSpec["mz"].tolist()
-    refIntensity = refSpec["intensity"].tolist()
-    compMz = compSpec["mz"].tolist()
-    compIntensity = compSpec["intensity"].tolist()
+def groupMzValues(mz, ppm):
+    mzdiff = np.diff(mz)
+    if ppm > 0:
+        res = mzdiff >= (mz[:-1] * ppm / 1e6)
+    res = np.insert(res, 0, 0)
+    res = np.cumsum(res)
+    return res
 
-    for i in range(len(refMz)):
-        mz = refMz[i]
-        intensity = refMz[i]
-        lL = mz - mz * tol / 1e6
-        uL = mz + mz * tol / 1e6
-        idx = [k for k, v in enumerate(compMz) if lL <= v <= uL]
-        if len(idx) > 0:
-            idx = idx[np.argmax(np.array(compIntensity)[np.array(idx)])]
-            refMz[i] = (mz * intensity + compMz[idx] * compIntensity[idx]) / (intensity + compIntensity[idx])
-            refIntensity[i] += compIntensity[idx]
-            del compMz[idx], compIntensity[idx]
 
-    refMz.extend(compMz)
-    refIntensity.extend(compIntensity)
-    refSpec["mz"] = np.array(refMz)
-    refSpec["intensity"] = np.array(refIntensity)
-    return refSpec
+# def estimateMzScattering(x):
+#     # Kernel density estimation of "mzdiff" using Silverman's rule-of-thumb
+#     sigma = np.std(x)
+#     q75, q25 = np.percentile(x, [75 ,25])
+#     iqr = q75 - q25
+#     n = len(x)
+#     bw = 0.9 * min(sigma, iqr / 1.34) * (n ** (-1 / 5)) # Bandwidth for KDE using rule-of-thumb
+#     kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(x.reshape(-1, 1))
+#     xScores = np.linspace(min(x) - 3 * bw, max(x) + 3 * bw, 512)
+#     scores = np.exp(kde.score_samples(xScores.reshape(-1, 1)))
+#     idx = np.where(np.diff(np.sign(np.diff(scores))) == 2)[0] + 1
+#     if len(idx) > 1:
+#         idx = idx[0]
+#     return xScores[idx].item()
+
+
+def mergeMs2(mzs, ints, mzGroups):
+    mzArray, intArray = [], []
+    for i in np.unique(mzGroups):
+        idx = np.where(mzGroups == i)[0]
+        mz = np.average(mzs[idx], weights=ints[idx])
+        intensity = max(ints[idx])
+        mzArray.append(mz)
+        intArray.append(intensity)
+    spec = {"mz": np.array(mzArray), "intensity": np.array(intArray)}
+    return spec
 
 
 def intraConsolidation(ms2, scans, tol):
@@ -40,22 +50,24 @@ def intraConsolidation(ms2, scans, tol):
     #        scans[i, j] = list of MS2 scan(number)s of j-th run corresponding to i-th feature
     # tol: m/z tolerance for merging MS2 peaks
 
-    # Sort MS2 spectra according to their total ion current (descending order)
     scans = scans.split(";")
-    tic = np.array([sum(ms2[key]["intensity"]) for key in scans])
-    ind = (-tic).argsort()  # Sort "tic" in descending order
-    scans = [scans[i] for i in ind]
-    spec = ms2[scans[0]]  # MS2 spectrum with the highest total ion current
-    del scans[0]
-    if len(scans) > 0:
-        for i in range(len(scans)):
-            p = ms2[scans[i]]
-            spec = ms2Consolidation(spec, p, tol)
-    # Sort the spectrum in ascending order of m/z
-    ind = np.argsort(spec["mz"])
-    spec["mz"] = spec["mz"][ind]
-    spec["intensity"] = spec["intensity"][ind]
+    if len(scans) > 1:
+        mzs = np.array([])
+        ints = np.array([])
+        # Extract m/z (and intensity) values from individual MS2 spectrum and merge them to "mzs" (and "ints")
+        for s in scans:
+            mzs = np.append(mzs, ms2[s]["mz"])
+            ints = np.append(ints, ms2[s]["intensity"])
+        # Sort m/z values (and intensities accordingly)
+        idx = np.argsort(mzs)
+        mzs = mzs[idx]
+        ints = ints[idx]
+        mzGroups = groupMzValues(mzs, tol)
+        spec = mergeMs2(mzs, ints, mzGroups)
+    else:
+        spec = ms2[scans[0]]
     return spec
+
 
 
 def interConsolidation(specs, tol):
@@ -64,25 +76,26 @@ def interConsolidation(specs, tol):
     #        specs[i, j] = (intra-consolidated) MS2 spectrum of j-th run corresponding to i-th feature
     # tol: m/z tolerance for merging MS2 peaks
     specs = [i for i in specs if i is not None]  # Skip "None"
-    tic = [sum(s["intensity"]) for s in specs]
-    if len(tic) > 1:
-        tic = np.array(tic)
-        ind = (-tic).argsort()  # Sort "tic" in descending order
-        specs = [specs[i] for i in ind]
-        spec = specs[0]
-        del specs[0]
+    if len(specs) > 1:
+        mzs = np.array([])
+        ints = np.array([])
+        # Extract m/z (and intensity) values from individual MS2 spectrum and merge them to "mzs" (and "ints")
+        for s in specs:
+            mzs = np.append(mzs, s["mz"])
+            ints = np.append(ints, s["intensity"])
+        # Sort m/z values (and intensities accordingly)
+        idx = np.argsort(mzs)
+        mzs = mzs[idx]
+        ints = ints[idx]
+        mzGroups = groupMzValues(mzs, tol)
+        spec = mergeMs2(mzs, ints, mzGroups)
     else:
         spec = specs[0]
-        specs = []
-    if len(specs) > 0:
-        for i in range(len(specs)):
-            p = specs[i]
-            spec = ms2Consolidation(spec, p, tol)
-    # Sort the spectrum in ascending order of m/z
-    ind = np.argsort(spec["mz"])
-    spec["mz"] = spec["mz"][ind]
-    spec["intensity"] = spec["intensity"][ind]
+    spec = simplifyMs2(spec)
+    return spec
 
+
+def simplifyMs2(spec):
     # Simplification of the merged spectrum
     # 1. Limit the number of peaks in each .dta file to 100
     # 2. Divide m/z-range into 10 bins (e.g. 0~100, 100~200, etc.) and retain the 10 largest peaks in each bin
@@ -198,6 +211,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                         ms2Dict[spec["num"]] = {}
                         ms2Dict[spec["num"]]["mz"] = spec["m/z array"]
                         ms2Dict[spec["num"]]["intensity"] = spec["intensity array"]
+
                         # Mapping between features and MS2 scan numbers
                         for i in range(len(fInd)):
                             if featureToScan[fInd[i], m] is None:
@@ -261,10 +275,10 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     # Handling mzXML file(s) #
     ##########################
     # Move mzXML files to the directory(ies) where individual .feature files are located
-    if params["skip_feature_detection"] == "0":
-        for file in mzxmlFiles:
-            baseFilename = os.path.basename(file)
-            featureDirectory = os.path.join(os.getcwd(), os.path.splitext(baseFilename)[0])
-            os.rename(file, os.path.join(featureDirectory, baseFilename))
+    # if params["skip_feature_detection"] == "0":
+    #     for file in mzxmlFiles:
+    #         baseFilename = os.path.basename(file)
+    #         featureDirectory = os.path.join(os.getcwd(), os.path.splitext(baseFilename)[0])
+    #         os.rename(file, os.path.join(featureDirectory, baseFilename))
 
     return df, featureToScan

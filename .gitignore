@@ -71,3 +71,7 @@ SOP_Jump_m_HPC.docx
 .idea/inspectionProfiles/Project_Default.xml
 .idea/
 koa_wt/
+.Rhistory
+ints.txt
+meanMzInts_test.R
+mzs.txt
