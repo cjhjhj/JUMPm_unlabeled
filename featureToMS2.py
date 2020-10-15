@@ -35,7 +35,7 @@ def mergeMs2(mzs, ints, mzGroups):
     for i in np.unique(mzGroups):
         idx = np.where(mzGroups == i)[0]
         mz = np.average(mzs[idx], weights=ints[idx])
-        intensity = max(ints[idx])
+        intensity = sum(ints[idx])
         mzArray.append(mz)
         intArray.append(intensity)
     spec = {"mz": np.array(mzArray), "intensity": np.array(intArray)}
