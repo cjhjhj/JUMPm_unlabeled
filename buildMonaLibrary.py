@@ -140,6 +140,8 @@ with open(sdfFile, encoding="utf-8") as f:
                             rt = None
                 elif line.startswith("exact mass") and mass == "NA":
                     mass = float(line.replace("exact mass=", ""))
+                elif line.startswith("ion type") and iontype == "NA":
+                    iontype = line.replace("ion type=", "")
                 else:
                     key = line.split("=")[0]
                     if key == "kegg":
