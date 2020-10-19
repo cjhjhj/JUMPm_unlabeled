@@ -15,15 +15,15 @@ conn = sqlite3.connect(dbName)
 n = 0
 proton = 1.007276466812
 flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
-uid, otherIds, name, synonym, formula, energy, inchikey, smiles, rt, mass, charge = \
-    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
+uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, charge = \
+    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
 smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
     "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
 
 # Dictionaries for library compounds and MS2 spectra
 # They will be changed to pandas DataFrames and saved to a SQLite file
 dictLib = {"id": [], "other_ids": [], "name": [], "synonym": [], "formula": [], "mass": [],
-           "energy": [], "smiles": [], "inchikey": [], "rt": [], "charge": []}
+           "ion_type": [], "energy": [], "smiles": [], "inchikey": [], "rt": [], "charge": []}
 
 ####################
 # Parse a SDF file #
@@ -51,14 +51,14 @@ with open(sdfFile, encoding="utf-8") as f:
                 # SMILES and Other IDs (KEGG, HMDB, PubChem_CID, PubChem_SID, ChEBI, ChemSpider, CAS) need to be parsed
                 flagComment = 1
             elif line.endswith("<PRECURSOR TYPE>"):
-                ionType = f.readline().strip()
+                iontype = f.readline().strip()
                 # Charge states of compounds were manually inspected by comparing <PRECURSOR TYPE> field and
                 # adduct information (https://fiehnlab.ucdavis.edu/images/files/software/ESI-MS-adducts-2020.xls)
                 # For the positive mode file
-                if ionType == "[M+2H]+" or ionType == "[M+H+K]+" or ionType == "[M+2H]++" or ionType == "[M]++" or ionType == "[M+H+Na]+" or ionType == "[M+H]2+":
+                if iontype == "[M+2H]+" or iontype == "[M+H+K]+" or iontype == "[M+2H]++" or iontype == "[M]++" or iontype == "[M+H+Na]+" or iontype == "[M+H]2+":
                     charge = 2
                 # For the negative mode file
-                elif ionType == "[M-2H]-" or ionType == "[M-2H]--":
+                elif iontype == "[M-2H]-" or iontype == "[M-2H]--":
                     charge = 2
                 else:
                     charge = 1
@@ -79,6 +79,7 @@ with open(sdfFile, encoding="utf-8") as f:
                 dictLib["synonym"].append(synonym)
                 dictLib["formula"].append(formula)
                 dictLib["mass"].append(mass)
+                dictLib["ion_type"].append(iontype)
                 dictLib["energy"].append(energy)
                 dictLib["inchikey"].append(inchikey)
                 dictLib["smiles"].append(smiles)
@@ -107,8 +108,8 @@ with open(sdfFile, encoding="utf-8") as f:
                     conn.commit()
 
             # Re-initialize variables (for next compound)
-            uid, otherIds, name, synonym, formula, energy, inchikey, smiles, rt, mass, charge = \
-                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
+            uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, charge = \
+                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
             smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
                 "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
             flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
