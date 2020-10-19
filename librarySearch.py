@@ -8,6 +8,22 @@ from statsmodels.distributions.empirical_distribution import ECDF
 from scipy import stats
 
 
+def adductDictionary(mode):
+    if mode == "1":
+        adduct = {"NH3": 17.0271024,
+                  "Na": 21.9825,
+                  "K": 37.956438,
+                  "CH3OH": 32.026769,
+                  "ACN": 41.0271024,
+                  "ACN+Na": 63.0090478,
+                  "2ACN": 82.0536502}
+    elif mode == "-1":
+        adduct = {"Cl": 35.97612871,
+                  "HCOO": 46.0049306,
+                  "CH3COO": 60.0205798}
+    return adduct
+
+
 def calcMS2Similarity(featSpec, libSpec, params):
     # Calculation of MS2 similarity between a feature and a library compound
     # Reference: Clustering millions of tandem mass spectra, J Proteome Res. 2008; 7: 113-22
@@ -89,6 +105,7 @@ def searchLibrary(full, paramFile):
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
     matchMzTol = float(params["library_mass_tolerance"])  # Unit of ppm
+    adducts = adductDictionary(params["mode"])
     nFeatures = full.shape[0]
     # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
     # So, within this function, full["feature_RT"] needs to be converted to the unit of second
@@ -178,7 +195,7 @@ def searchLibrary(full, paramFile):
         # Match features and library compounds
         print("  Features are being compared with library compounds")
         res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [],
-               "id": [], "formula": [], "name": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
+               "id": [], "formula": [], "name": [], "ion": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
                "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}
         intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
         for c in intensityCols:
@@ -204,6 +221,12 @@ def searchLibrary(full, paramFile):
             # Retrieve library compounds satisfying conditions and calculate MS2-based and RT-based similarity (if exist)
             sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?)"
             df = pd.read_sql_query(sqlQuery, conn, params=(fMass, matchMzTol))
+            # Adduct search
+            dfAdduct = pd.DataFrame()
+            for k, v in adducts.items():
+                dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(fMass - v, matchMzTol)), ignore_index = True)
+            df = df.append(dfAdduct, ignore_index = True)
+
             if not df.empty:
                 for j in range(df.shape[0]):
                     uid = df["id"].iloc[j]
@@ -240,6 +263,7 @@ def searchLibrary(full, paramFile):
                         libId = df["id"].iloc[j]
                         libFormula = df["formula"].iloc[j]
                         libName = df["name"].iloc[j]
+                        libIon = df["ion_type"].iloc[j]
                         libSmiles = df["smiles"].iloc[j]
                         libInchiKey = df["inchikey"].iloc[j]
                         libEnergy = df["collision_energy"].iloc[j]
@@ -253,6 +277,7 @@ def searchLibrary(full, paramFile):
                         res["id"].append(libId)
                         res["formula"].append(libFormula)
                         res["name"].append(libName)
+                        res["ion"].append(libIon)
                         res["SMILES"].append(libSmiles)
                         res["InchiKey"].append(libInchiKey)
                         res["collision_energy"].append(libEnergy)
@@ -273,7 +298,7 @@ def searchLibrary(full, paramFile):
         conn.close()
         res = pd.DataFrame.from_dict(res)
         resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                  ["id", "formula", "name", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
+                  ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
         res = res[resCols]
         filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
         outputFile = os.path.join(filePath, "align_" + params["output_name"] + "." + str(nLibs) + ".library_matches")
