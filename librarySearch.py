@@ -88,6 +88,86 @@ def calcMS2Similarity(featSpec, libSpec, params):
     return normDotProduct
 
 
+def prepRtAlignment(f, c, params):
+    # f: features
+    # c: connection to library file (SQLite)
+    # Preparation of LOESS-based RT alignment
+    proton = 1.007276466812
+    tol = float(params["library_mass_tolerance"])  # Unit of ppm
+    x, y = np.array([]), np.array([])  # To be used for RT-alignment
+    nFeatures = f.shape[0]
+    for i in range(nFeatures):
+        compMz = f["feature_m/z"].iloc[i]
+        compRt = f["feature_RT"].iloc[i]
+        compZ = f["feature_z"].iloc[i]
+        if params["mode"] == "1":  # Positive mode
+            compMass = compZ * (compMz - proton)
+        elif params["mode"] == "-1":  # Negative mode
+            compMass = compZ * (compMz + proton)
+        if np.isnan(compZ):
+            continue
+        if compZ == 0:
+            sqlQuery = r"SELECT rt FROM library WHERE abs((?) - mass) / mass * 1e6 < (?) AND abs((?) - rt) < 600"
+            df = pd.read_sql_query(sqlQuery, c, params=(compMass, tol, compRt))
+        else:
+            sqlQuery = r"SELECT rt FROM library WHERE abs((?) - mass) / mass * 1e6 < (?) AND abs((?) - rt) < 600 AND charge = (?)"
+            # type(compZ) = numpy int64
+            # For some reasons, "numpy int64" cannot be directly used to SQL statement
+            # (I don't understand why. It seems that "numpy float64" works in SQL statement)
+            # To avoid this problem, in the following SQL query, compZ is converted into "int" type again
+            df = pd.read_sql_query(sqlQuery, c, params=(compMass, tol, compRt, int(compZ)))
+        if not df.empty:
+            refRt = min(df["rt"])
+            x = np.append(x, compRt)  # RT of features
+            y = np.append(y, compRt - refRt)  # RT-shift
+    return x, y
+
+
+def rtAlignment(x, y):
+    # x: RT of features
+    # y: RT-shift between features and library compounds
+
+    # LOESS modeling
+    rLoess = loess()
+
+    # Truncation of y (RT-shift)
+    truncatedMean = np.mean(y[(y >= np.quantile(y, 0.1)) & (y <= np.quantile(y, 0.9))])
+    truncatedSd = np.std(y[(y >= np.quantile(y, 0.1)) & (y <= np.quantile(y, 0.9))])
+    lL = truncatedMean - 3 * truncatedSd
+    uL = truncatedMean + 3 * truncatedSd
+    ind = np.where((y >= lL) & (y <= uL))[0]
+    if len(ind) >= 50:  # At least 50 data points for LOESS
+        # LOESS fitting and calibrate feature RT
+        mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
+        return mod
+    else:
+        print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
+        return -1
+
+
+def queryLibrary(m, z, conn, adducts, tol):
+    # Standard library search
+    # Retrieve library compounds satisfying conditions and calculate MS2-based and RT-based similarity (if exist)
+    if z == 0:
+        sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?)"
+        df = pd.read_sql_query(sqlQuery, conn, params=(m, tol))
+        # Adduct search
+        dfAdduct = pd.DataFrame()
+        for k, v in adducts.items():
+            dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(m - v, tol)), ignore_index=True)
+        df = df.append(dfAdduct, ignore_index=True)
+    else:
+        sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?) AND charge = (?)"
+        df = pd.read_sql_query(sqlQuery, conn, params=(m, tol, int(z)))
+        # Adduct search
+        dfAdduct = pd.DataFrame()
+        for k, v in adducts.items():
+            dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(m - v, tol, int(z))), ignore_index=True)
+        df = df.append(dfAdduct, ignore_index=True)
+
+    return df
+
+
 def searchLibrary(full, paramFile):
     ##################################
     # Load parameters and initialize #
@@ -111,9 +191,9 @@ def searchLibrary(full, paramFile):
     # So, within this function, full["feature_RT"] needs to be converted to the unit of second
     full["feature_RT"] = full["feature_RT"] * 60
 
-    #############################
-    # Open sqlite-based library #
-    #############################
+    ##########################
+    # Perform library search #
+    ##########################
     allRes = pd.DataFrame()
     nLibs = 1
     for libFile in params["library"]:
@@ -133,7 +213,6 @@ def searchLibrary(full, paramFile):
             preDf = pd.read_sql_query(preQuery, conn)
             if "float" not in str(preDf["rt"].dtype):
                 doAlignment = "2"
-
         if doAlignment == "0":
             print("  According to the parameter, RT-alignment is not performed between features and library compounds")
         elif doAlignment == "2":
@@ -142,52 +221,17 @@ def searchLibrary(full, paramFile):
             doAlignment = "0"
         elif doAlignment == "1":
             print("  RT-alignment is being performed between features and library compounds")
-            # Preparation of LOESS-based RT alignment
-            x, y = np.array([]), np.array([])  # To be used for RT-alignment
-            for i in range(nFeatures):
-                compMz = full["feature_m/z"].iloc[i]
-                compRt = full["feature_RT"].iloc[i]
-                compZ = full["feature_z"].iloc[i]
-                if params["mode"] == "1":  # Positive mode
-                    compMass = compZ * (compMz - proton)
-                elif params["mode"] == "-1":  # Negative mode
-                    compMass = compZ * (compMz + proton)
-                if np.isnan(compZ):
-                    continue
-                if compZ == 0:
-                    sqlQuery = r"SELECT rt FROM library WHERE abs((?) - mass) / mass * 1e6 < (?) AND abs((?) - rt) < 600"
-                    df = pd.read_sql_query(sqlQuery, conn, params=(compMass, matchMzTol, compRt))
-                else:
-                    sqlQuery = r"SELECT rt FROM library WHERE abs((?) - mass) / mass * 1e6 < (?) AND abs((?) - rt) < 600 AND charge = (?)"
-                    # type(compZ) = numpy int64
-                    # For some reasons, "numpy int64" cannot be directly used to SQL statement
-                    # (I don't understand why. It seems that "numpy float64" works in SQL statement)
-                    # To avoid this problem, in the following SQL query, compZ is converted into "int" type again
-                    df = pd.read_sql_query(sqlQuery, conn, params=(compMass, matchMzTol, compRt, int(compZ)))
-                if not df.empty:
-                    refRt = min(df["rt"])
-                    x = np.append(x, compRt)  # RT of features
-                    y = np.append(y, compRt - refRt)  # RT-shift
-
-            # LOESS modeling
-            rLoess = loess()
-            rPredict = ro.r("predict")
-
-            # Truncation of y (RT-shift)
-            truncatedMean = np.mean(y[(y >= np.quantile(y, 0.1)) & (y <= np.quantile(y, 0.9))])
-            truncatedSd = np.std(y[(y >= np.quantile(y, 0.1)) & (y <= np.quantile(y, 0.9))])
-            lL = truncatedMean - 3 * truncatedSd
-            uL = truncatedMean + 3 * truncatedSd
-            ind = np.where((y >= lL) & (y <= uL))[0]
-            if len(ind) >= 50:  # At least 50 data points for LOESS
-                # LOESS fitting and calibrate feature RT
-                mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
+            x, y = prepRtAlignment(full, conn, params)
+            mod = rtAlignment(x, y)
+            if mod == -1:
+                print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
+                params["library_rt_alignment"] = "0"
+            else:
+                # Calibration of features' RT
+                rPredict = ro.r("predict")
                 full["feature_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
                 # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
                 ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
-            else:
-                print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
-                params["library_rt_alignment"] = "0"
 
         ########################################
         # Match features and library compounds #
@@ -200,7 +244,6 @@ def searchLibrary(full, paramFile):
         intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
         for c in intensityCols:
             res[c] = []
-
         n = 0
         progress = utils.progressBar(nFeatures)
         for i in range(nFeatures):
@@ -218,14 +261,8 @@ def searchLibrary(full, paramFile):
             elif params["mode"] == "-1":  # Negative mode
                 fMass = fZ * (fMz + proton)
 
-            # Retrieve library compounds satisfying conditions and calculate MS2-based and RT-based similarity (if exist)
-            sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?)"
-            df = pd.read_sql_query(sqlQuery, conn, params=(fMass, matchMzTol))
-            # Adduct search
-            dfAdduct = pd.DataFrame()
-            for k, v in adducts.items():
-                dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(fMass - v, matchMzTol)), ignore_index = True)
-            df = df.append(dfAdduct, ignore_index = True)
+            # Retrieve library compounds of which neutral masses are similar to feature mass
+            df = queryLibrary(fMass, fZ, conn, adducts, matchMzTol)
 
             if not df.empty:
                 for j in range(df.shape[0]):
