@@ -274,10 +274,10 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
     # Handling mzXML file(s) #
     ##########################
     # Move mzXML files to the directory(ies) where individual .feature files are located
-    # if params["skip_feature_detection"] == "0":
-    #     for file in mzxmlFiles:
-    #         baseFilename = os.path.basename(file)
-    #         featureDirectory = os.path.join(os.getcwd(), os.path.splitext(baseFilename)[0])
-    #         os.rename(file, os.path.join(featureDirectory, baseFilename))
+    if params["skip_feature_detection"] == "0":
+        for file in mzxmlFiles:
+            baseFilename = os.path.basename(file)
+            featureDirectory = os.path.join(os.getcwd(), os.path.splitext(baseFilename)[0])
+            os.rename(file, os.path.join(featureDirectory, baseFilename))
 
     return df, featureToScan
