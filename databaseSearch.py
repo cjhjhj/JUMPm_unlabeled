@@ -1,7 +1,25 @@
 import sys, os, utils, pandas as pd, multiprocessing as mp, time
 
 
-def generateFiles(feature, params):
+def adductDictionary(mode):
+    if mode == "1":
+        adduct = {"H": 1,
+                  "NH4": 18,
+                  "Na": 23,
+                  "K": 39,
+                  "CH3OH+H": 33,
+                  "ACN+H": 42,
+                  "ACN+Na": 64,
+                  "2ACN+H": 83}
+    elif mode == "-1":
+        adduct = {"-H": -1,
+                  "Cl": 35,
+                  "HCOO": 45,
+                  "CH3COO": 59}
+    return adduct
+
+
+def generateFiles(feature, params, precursorIonMode):
     num = feature["feature_num"]
     paramFile = "metfrag_params_" + str(num) + ".txt"
     ms2File = "metfrag_data_" + str(num) + ".txt"
@@ -32,7 +50,7 @@ def generateFiles(feature, params):
     f.write("DatabaseSearchRelativeMassDeviation = {}\n".format(params["mass_tolerance_formula_search"]))
     f.write("FragmentPeakMatchRelativeMassDeviation = {}\n".format(params["mass_tolerance_ms2_peaks"]))
     f.write("NeutralPrecursorMass = {}\n".format(mass))
-    f.write("PrecursorIonMode = 1\n")   # It may contain adduct information. Refer https://ipb-halle.github.io/MetFrag/projects/metfragcl/
+    f.write("PrecursorIonMode = {}\n".format(precursorIonMode))   # It may contain adduct information. Refer https://ipb-halle.github.io/MetFrag/projects/metfragcl/
     if params["mode"] == "1":
         f.write("IsPositiveIonMode = True\n")
     elif params["mode"] == "-1":
@@ -58,29 +76,40 @@ def generateFiles(feature, params):
 
 def runMetFrag(feature, params):
     if feature["MS2"] is not None:
-        paramFile, ms2File, outputFile = generateFiles(feature, params)
+        dfAll = pd.DataFrame()
+        adducts = adductDictionary(params["mode"])
+        for k, v in adducts.items():
+            paramFile, ms2File, outputFile = generateFiles(feature, params, v)
 
-        # MetFrag should be installed first and its path should be put to the following command
-        cmd = "java -jar " + params["metfrag"] + " " + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is for linux only
-        os.system(cmd)
-        time.sleep(0.1)
-        df = pd.read_csv(outputFile)
-        if params["database"].lower() == "pubchem":
-            df = df.rename(columns = {"IUPACName": "CompoundName"})
-        df["feature_index"] = feature["feature_num"]
-        df["feature_m/z"] = feature["feature_m/z"]
-        df["feature_RT"] = feature["feature_RT"]
-        intensityCols = [col for col in feature.keys() if col.lower().endswith("_intensity")]
-        for c in intensityCols:
-            df[c] = feature[c]
-        # df["feature_intensity"] = feature["feature_intensity"]
-        columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                  ["Identifier", "MolecularFormula", "CompoundName", "SMILES", "InChIKey", "Score"]
-        df = df[columns]
-        os.remove(paramFile)
-        os.remove(ms2File)
-        os.remove(outputFile)
-        return df
+            # MetFrag should be installed first and its path should be put to the following command
+            cmd = "java -jar " + params["metfrag"] + " " + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is for linux only
+            os.system(cmd)
+            time.sleep(0.1)
+            df = pd.read_csv(outputFile)
+            if params["database"].lower() == "pubchem":
+                df = df.rename(columns = {"IUPACName": "CompoundName"})
+            df["feature_index"] = feature["feature_num"]
+            df["feature_m/z"] = feature["feature_m/z"]
+            df["feature_RT"] = feature["feature_RT"]
+            if k == "-H":
+                df["Ion"] = "[M" + str(k) + "]"
+            else:
+                df["Ion"] = "[M+" + str(k) + "]"
+            if params["mode"] == "1":
+                df["Ion"] = df["Ion"] + "+"
+            elif params["mode"] == "-1":
+                df["Ion"] = df["Ion"] + "-"
+            intensityCols = [col for col in feature.keys() if col.lower().endswith("_intensity")]
+            for c in intensityCols:
+                df[c] = feature[c]
+            columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                      ["Identifier", "MolecularFormula", "CompoundName", "Ion", "SMILES", "InChIKey", "FragmenterScore"]
+            df = df[columns]
+            dfAll = dfAll.append(df, ignore_index=True)
+            os.remove(paramFile)
+            os.remove(ms2File)
+            os.remove(outputFile)
+        return dfAll
     else:
         return None
 
