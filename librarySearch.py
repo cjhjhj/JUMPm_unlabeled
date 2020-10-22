@@ -126,6 +126,8 @@ def prepRtAlignment(f, c, params):
 def rtAlignment(x, y):
     # x: RT of features
     # y: RT-shift between features and library compounds
+    if len(x) < 50:
+        return -1
 
     # LOESS modeling
     rLoess = loess()
@@ -141,7 +143,6 @@ def rtAlignment(x, y):
         mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
         return mod
     else:
-        print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
         return -1
 
 
@@ -225,7 +226,8 @@ def searchLibrary(full, paramFile):
             mod = rtAlignment(x, y)
             if mod == -1:
                 print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
-                params["library_rt_alignment"] = "0"
+                doAlignment = "0"
+                # params["library_rt_alignment"] = "0"
             else:
                 # Calibration of features' RT
                 rPredict = ro.r("predict")
