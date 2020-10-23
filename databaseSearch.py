@@ -1,21 +1,25 @@
-import sys, os, utils, pandas as pd, multiprocessing as mp, time
+import sys, os, re, utils, pandas as pd, multiprocessing as mp, time
 
 
-def adductDictionary(mode):
-    if mode == "1":
-        adduct = {"H": 1,
-                  "NH4": 18,
-                  "Na": 23,
-                  "K": 39,
-                  "CH3OH+H": 33,
-                  "ACN+H": 42,
-                  "ACN+Na": 64,
-                  "2ACN+H": 83}
-    elif mode == "-1":
-        adduct = {"-H": -1,
-                  "Cl": 35,
-                  "HCOO": 45,
-                  "CH3COO": 59}
+def adductDictionary(params):
+    adduct = {}
+    for key, val in params.items():
+        if key.startswith("adduct"):
+            key = re.sub(r'adduct_', '', key)
+            if key == "NH3":
+                key = "NH4" # In MetFrag, NH3 is used as NH4
+            adduct[key] = float(val)
+
+    # In MetFrag, the mass-shift is integerized
+    if params["mode"] == "1":
+        for key, val in adduct.items():
+            adduct[key] = int(val + 0.5) + 1
+        adduct["H"] = 1
+    elif params["mode"] == "-1":
+        for key, val in adduct.items():
+            adduct[key] = int(val + 0.5) - 1
+        adduct["-H"] = -1
+
     return adduct
 
 
@@ -77,7 +81,7 @@ def generateFiles(feature, params, precursorIonMode):
 def runMetFrag(feature, params):
     if feature["MS2"] is not None:
         dfAll = pd.DataFrame()
-        adducts = adductDictionary(params["mode"])
+        adducts = adductDictionary(params)
         for k, v in adducts.items():
             paramFile, ms2File, outputFile = generateFiles(feature, params, v)
 
