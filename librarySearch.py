@@ -8,19 +8,12 @@ from statsmodels.distributions.empirical_distribution import ECDF
 from scipy import stats
 
 
-def adductDictionary(mode):
-    if mode == "1":
-        adduct = {"NH3": 17.0271024,
-                  "Na": 21.9825,
-                  "K": 37.956438,
-                  "CH3OH": 32.026769,
-                  "ACN": 41.0271024,
-                  "ACN+Na": 63.0090478,
-                  "2ACN": 82.0536502}
-    elif mode == "-1":
-        adduct = {"Cl": 35.97612871,
-                  "HCOO": 46.0049306,
-                  "CH3COO": 60.0205798}
+def adductDictionary(params):
+    adduct = {}
+    for key, val in params.items():
+        if key.startswith("adduct"):
+            key = re.sub(r'adduct_', '', key)
+            adduct[key] = float(val)
     return adduct
 
 
@@ -186,7 +179,7 @@ def searchLibrary(full, paramFile):
         sys.exit("'mode' parameter should be either 1 or -1")
     proton = 1.007276466812
     matchMzTol = float(params["library_mass_tolerance"])  # Unit of ppm
-    adducts = adductDictionary(params["mode"])
+    adducts = adductDictionary(params)
     nFeatures = full.shape[0]
     # While full["feature_RT"] has the unit of minute, the library compounds have RTs in the unit of second
     # So, within this function, full["feature_RT"] needs to be converted to the unit of second

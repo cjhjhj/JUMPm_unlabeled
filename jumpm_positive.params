@@ -31,6 +31,23 @@ metfrag = /hpcf/authorized_apps/proteomics_apps/jumpm/python/metfrag/MetFrag2.4.
 mass_tolerance_formula_search = 10 # PPM tolerance for searching chemical formula in a database
 mass_tolerance_ms2_peaks = 10      # PPM tolerance for comparing MS2 peaks between features and database entries
 
+#######################################
+# Adducts for library/database search #
+#######################################
+# Positive mode
+adduct_NH3 = 17.0271024
+#adduct_Na = 21.9825
+#adduct_K = 37.956438
+#adduct_CH3OH = 32.026769
+#adduct_ACN = 41.0271024
+#adduct_ACN+Na = 63.0090478
+#adduct_2ACN = 82.0536502
+
+# Negative mode
+#adduct_Cl = 35.97612871
+#adduct_HCOO = 46.0049306
+#adduct_CH3COO = 60.0205798
+
 #####################################
 # Parameters for processing spectra #
 #####################################
