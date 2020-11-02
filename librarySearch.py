@@ -139,24 +139,31 @@ def rtAlignment(x, y):
         return -1
 
 
-def queryLibrary(m, z, conn, adducts, tol):
+def queryLibrary(mz, m, z, conn, adducts, tol):
     # Standard library search
     # Retrieve library compounds satisfying conditions and calculate MS2-based and RT-based similarity (if exist)
+
+    # Query is made using m/z, neutral mass and charge (if available) information of each feature
+    # Neutral mass is the main variable of query
+    # m/z is used to prevent searching adduct compounds when 'no adduct' feature is queried (and vice versa)
+    # So, a larger tolerance (2 * tol) is applied to m/z-based query not to affect neutral mass-based query
     if z == 0:
-        sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?)"
-        df = pd.read_sql_query(sqlQuery, conn, params=(m, tol))
+        sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?) " \
+                   r"AND abs(((?) - precursor_mz) / precursor_mz * 1e6) < (?)"
+        df = pd.read_sql_query(sqlQuery, conn, params=(m, tol, mz, 2 * tol))
         # Adduct search
         dfAdduct = pd.DataFrame()
         for k, v in adducts.items():
-            dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(m - v, tol)), ignore_index=True)
+            dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(m - v, tol, mz, 2 * tol)), ignore_index=True)
         df = df.append(dfAdduct, ignore_index=True)
     else:
-        sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?) AND charge = (?)"
-        df = pd.read_sql_query(sqlQuery, conn, params=(m, tol, int(z)))
+        sqlQuery = r"SELECT * FROM library WHERE abs(((?) - mass) / mass * 1e6) < (?) " \
+                   r"AND abs(((?) - precursor_mz) / precursor_mz * 1e6) < (?) AND charge = (?)"
+        df = pd.read_sql_query(sqlQuery, conn, params=(m, tol, mz, 2 * tol, int(z)))
         # Adduct search
         dfAdduct = pd.DataFrame()
         for k, v in adducts.items():
-            dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(m - v, tol, int(z))), ignore_index=True)
+            dfAdduct = dfAdduct.append(pd.read_sql_query(sqlQuery, conn, params=(m - v, tol, mz, 2 * tol, int(z))), ignore_index=True)
         df = df.append(dfAdduct, ignore_index=True)
 
     return df
@@ -257,7 +264,7 @@ def searchLibrary(full, paramFile):
                 fMass = fZ * (fMz + proton)
 
             # Retrieve library compounds of which neutral masses are similar to feature mass
-            df = queryLibrary(fMass, fZ, conn, adducts, matchMzTol)
+            df = queryLibrary(fMz, fMass, fZ, conn, adducts, matchMzTol)
 
             if not df.empty:
                 for j in range(df.shape[0]):
