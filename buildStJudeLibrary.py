@@ -13,10 +13,10 @@ import sys, os, sqlite3, pandas as pd
 # Handling of library template #
 ################################
 # Initialization (path of library template file and experimental condition)
-templateFile = r"/Research/Projects/7Metabolomics/Library/StJude/Metabolome_library_v4.1.1.txt"
-condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
-# templateFile = sys.argv[1]
-# condition = sys.argv[2]
+# templateFile = r"/Research/Projects/7Metabolomics/Library/StJude/Metabolome_library_v4.1.1.txt"
+# condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
+templateFile = sys.argv[1]
+condition = sys.argv[2]
 dbName = "stjude_library_" + condition + ".db"
 dbName = os.path.join(os.path.dirname(templateFile), dbName)
 proton = 1.007276466812
