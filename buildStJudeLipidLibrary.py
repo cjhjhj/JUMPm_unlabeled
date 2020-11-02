@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, sqlite3, pandas as pd
+import sys, os, sqlite3, numpy as np, pandas as pd
 
 # Custom script to generate our own lipid library
 # Template is a text file containing compound metadata
@@ -13,17 +13,19 @@ import sys, os, sqlite3, pandas as pd
 # Handling of library template #
 ################################
 # Initialization (path of library template file and experimental condition)
-templateFile = r"/Research/Projects/7Metabolomics/Library/Lipid/lipid_library_metsciegrp5.txt"
-condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
-# templateFile = sys.argv[1]
-# condition = sys.argv[2]
-
+# templateFile = r"/Research/Projects/7Metabolomics/Library/Lipid/lipid_library_v0.02.txt"
+# condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
+templateFile = sys.argv[1]
+condition = sys.argv[2]
 dbName = "stjude_library_lipid_" + condition + ".db"
 dbName = os.path.join(os.path.dirname(templateFile), dbName)
 conn = sqlite3.connect(dbName)
+proton = 1.007276466812
 
 # Read a text file containing the information of metabolomes
 df = pd.read_csv(templateFile, sep = "\t", engine = "python")
+ind = df[condition + "_linkms2"] != "na"
+df = df[ind].reset_index(drop = True)
 
 ##################################
 # Preparation of a library table #
@@ -42,6 +44,8 @@ df = pd.read_csv(templateFile, sep = "\t", engine = "python")
 # 9. rt: RT of the compound/metabolite (if any)
 # 10. charge: precursor charge state of the compound/metabolite (if any)
 # 11. energy: collision energy of MS2
+# 12. precursor_mz: precursor m/z value
+# 13. ion_type: ion type of precursor (e.g. [M+H]+, [M+NH4]+, etc.)
 
 # Compound metadata
 # Note that the lipid table does not have some identifiers such as InChIKey
@@ -51,13 +55,27 @@ dfLib = df[["idstjude", "name", "synonym", "formula", "monoisotopic_mass", "SMIL
 dfLib["inchikey"] = "NA"
 dfLib = dfLib.rename(columns = {"idstjude": "id", "monoisotopic_mass": "mass"})
 dfLib.columns = dfLib.columns.str.lower()    # Column names are all lowercases
-dfLib["ion_type"] = df[condition + "_adduct"]
 
 # Spectral metadata table
 dfLib["collision_energy"] = df[condition + "_ms2setting"]
 dfLib["rt"] = df[condition + "_rt"]
 dfLib["rt"] = [float(val) * 60 if val != "na" else None for val in dfLib["rt"]] # Convert to "second" unit
-dfLib["charge"] = df[condition + "_charge"]
+dfLib["charge"] = pd.to_numeric(df[condition + "_charge"])
+sign = ""
+if condition[-1] == "p":
+    dfLib["precursor_mz"] = (dfLib["mass"] + dfLib["charge"] * proton) / dfLib["charge"]
+    sign = "+"
+elif condition[-1] == "n":
+    dfLib["precursor_mz"] = (dfLib["mass"] - dfLib["charge"] * proton) / dfLib["charge"]
+    sign = "-"
+dfLib["ion_type"] = df[condition + "_adduct"]
+for i in range(dfLib.shape[0]):
+    if dfLib["ion_type"].loc[i] == "na":
+        if dfLib["charge"].loc[i] == 1:
+            dfLib["ion_type"].loc[i] = "[M" + sign + "H]" + sign
+        else:
+            dfLib["ion_type"].loc[i] = "[M" + sign + str(int(dfLib["charge"].loc[i])) + "H]" + sign
+
 
 ##############################
 # Processing of MS2 spectrum #
@@ -77,11 +95,14 @@ for i in range(dfLib.shape[0]):
 #################################################################
 # Addition of decoys (by adding 3 * proton to the neutral mass) #
 #################################################################
-proton = 1.007276466812
 dfDecoy = dfLib.copy()
 for i in range(dfDecoy.shape[0]):
     dfDecoy.loc[i, "id"] = "##Decoy_" + dfDecoy.loc[i, "id"]
     dfDecoy.loc[i, "mass"] += 3 * proton # This way prevents 'SettingwithCopyWarning'
+if condition[-1] == "p":
+    dfDecoy["precursor_mz"] = (dfDecoy["mass"] + dfDecoy["charge"] * proton) / dfDecoy["charge"]
+elif condition[-1] == "n":
+    dfDecoy["precursor_mz"] = (dfDecoy["mass"] - dfDecoy["charge"] * proton) / dfDecoy["charge"]
 
 # Merge target and decoy DataFrames into one
 dfLib = dfLib.append(dfDecoy, ignore_index = True)

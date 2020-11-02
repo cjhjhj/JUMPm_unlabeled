@@ -2,10 +2,18 @@
 
 import sys, os, sqlite3, re, numpy as np, pandas as pd
 
+# Custom script to generate MoNA metabolite library
+# Template is a SDF file downloaded from MoNA website
+# MS2 spectrum of each metabolite (when available) is also in the SDF file (needs to be parsed)
+
+# Usage
+# python buildMonaLibrary.py <template file (full path)> <column and mode information (e.g. hilicn, c18p, etc.)>
+
 # Open a SQLite database and write the library DataFrame to the database
 # sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LC-MS-MS_Positive_Mode.sdf"
 # sdfFile = r"/Research/Projects/7Metabolomics/library/MoNA/MoNA-export-LipidBlast.sdf"
 sdfFile = sys.argv[1]
+condition = sys.argv[2]
 dbName = os.path.splitext(sdfFile)[0] + ".db"
 conn = sqlite3.connect(dbName)
 
@@ -15,14 +23,14 @@ conn = sqlite3.connect(dbName)
 n = 0
 proton = 1.007276466812
 flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
-uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, charge = \
-    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
+uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, precmz, charge = \
+    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None, None
 smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
     "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
 
 # Dictionaries for library compounds and MS2 spectra
 # They will be changed to pandas DataFrames and saved to a SQLite file
-dictLib = {"id": [], "other_ids": [], "name": [], "synonym": [], "formula": [], "mass": [],
+dictLib = {"id": [], "other_ids": [], "name": [], "synonym": [], "formula": [], "precursor_mz": [], "mass": [],
            "ion_type": [], "energy": [], "smiles": [], "inchikey": [], "rt": [], "charge": []}
 
 ####################
@@ -43,6 +51,8 @@ with open(sdfFile, encoding="utf-8") as f:
                 synonym = f.readline().strip()
             elif line.endswith("<FORMULA>"):
                 formula = f.readline().strip()
+            elif line.endswith("<PRECURSOR M/Z>"):
+                precmz = float(f.readline().strip())
             elif line.endswith("<EXACT MASS>"):
                 mass = float(f.readline().strip())
             elif line.endswith("<INCHIKEY>"):
@@ -78,6 +88,7 @@ with open(sdfFile, encoding="utf-8") as f:
                 dictLib["name"].append(name)
                 dictLib["synonym"].append(synonym)
                 dictLib["formula"].append(formula)
+                dictLib["precursor_mz"].append(precmz)
                 dictLib["mass"].append(mass)
                 dictLib["ion_type"].append(iontype)
                 dictLib["energy"].append(energy)
@@ -108,8 +119,8 @@ with open(sdfFile, encoding="utf-8") as f:
                     conn.commit()
 
             # Re-initialize variables (for next compound)
-            uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, charge = \
-                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
+            uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, precmz, charge = \
+                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None, None
             smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
                 "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
             flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
@@ -176,7 +187,10 @@ proton = 1.007276466812
 for i in range(dfDecoy.shape[0]):
     dfDecoy.loc[i, "id"] = "##Decoy_" + dfDecoy.loc[i, "id"]
     dfDecoy.loc[i, "mass"] += 3 * proton # This way prevents 'SettingwithCopyWarning'
-
+if condition[-1] == "p":
+    dfDecoy["precursor_mz"] = (dfDecoy["mass"] + dfDecoy["charge"] * proton) / dfDecoy["charge"]
+elif condition[-1] == "n":
+    dfDecoy["precursor_mz"] = (dfDecoy["mass"] - dfDecoy["charge"] * proton) / dfDecoy["charge"]
 dfLib = dfLib.append(dfDecoy, ignore_index = True)
 dfLib.to_sql("library", conn, if_exists = "replace")    # Table name is "library"
 conn.close()
