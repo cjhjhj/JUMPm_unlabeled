@@ -61,12 +61,11 @@ dfLib["collision_energy"] = df[condition + "_ms2setting"]
 dfLib["rt"] = df[condition + "_rt"]
 dfLib["rt"] = [float(val) * 60 if val != "na" else None for val in dfLib["rt"]] # Convert to "second" unit
 dfLib["charge"] = pd.to_numeric(df[condition + "_charge"])
+dfLib["precursor_mz"] = np.nan
 sign = ""
 if condition[-1] == "p":
-    dfLib["precursor_mz"] = (dfLib["mass"] + dfLib["charge"] * proton) / dfLib["charge"]
     sign = "+"
 elif condition[-1] == "n":
-    dfLib["precursor_mz"] = (dfLib["mass"] - dfLib["charge"] * proton) / dfLib["charge"]
     sign = "-"
 dfLib["ion_type"] = df[condition + "_adduct"]
 for i in range(dfLib.shape[0]):
@@ -75,7 +74,6 @@ for i in range(dfLib.shape[0]):
             dfLib["ion_type"].loc[i] = "[M" + sign + "H]" + sign
         else:
             dfLib["ion_type"].loc[i] = "[M" + sign + str(int(dfLib["charge"].loc[i])) + "H]" + sign
-
 
 ##############################
 # Processing of MS2 spectrum #
@@ -88,7 +86,8 @@ for i in range(dfLib.shape[0]):
         # Although the path of .MS2 file contains a letter representing an ion mode (either "p" or "n"),
         # "uid" does not have the letter to make it consistent with "idstjude"
         uid = os.path.splitext(os.path.basename(ms2Path))[0][:-1]
-        dfMs2 = pd.read_csv(ms2Path, sep = "\t", engine = "python")    # Header (precursor m/z and charge) is ignored
+        dfMs2 = pd.read_csv(ms2Path, sep = "\t")
+        dfLib["precursor_mz"].iloc[i] = float(dfMs2.columns[0])
         dfMs2.columns = ["mz", "intensity"]
         dfMs2.to_sql(uid, conn, if_exists = "replace", index = False)   # Table name is the same as compound id (e.g. sjm00001)
 
@@ -100,9 +99,9 @@ for i in range(dfDecoy.shape[0]):
     dfDecoy.loc[i, "id"] = "##Decoy_" + dfDecoy.loc[i, "id"]
     dfDecoy.loc[i, "mass"] += 3 * proton # This way prevents 'SettingwithCopyWarning'
 if condition[-1] == "p":
-    dfDecoy["precursor_mz"] = (dfDecoy["mass"] + dfDecoy["charge"] * proton) / dfDecoy["charge"]
+    dfDecoy["precursor_mz"] += 3 * proton / dfDecoy["charge"]
 elif condition[-1] == "n":
-    dfDecoy["precursor_mz"] = (dfDecoy["mass"] - dfDecoy["charge"] * proton) / dfDecoy["charge"]
+    dfDecoy["precursor_mz"] -= 3 * proton / dfDecoy["charge"]
 
 # Merge target and decoy DataFrames into one
 dfLib = dfLib.append(dfDecoy, ignore_index = True)
