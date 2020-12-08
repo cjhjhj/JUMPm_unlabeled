@@ -149,7 +149,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
         m += 1
         reader = mzxml.MzXML(file)
         fileBasename, _ = os.path.splitext(os.path.basename(file))
-        colNames = [item for item in full.dtype.names if re.search(fileBasename, item)]
+        colNames = [item for item in full.dtype.names if re.search(fileBasename + "_", item)]
         subset = full[colNames]
         subset.dtype.names = [s.split("_")[-1] for s in subset.dtype.names]
         ms2Dict = {}
