@@ -4,6 +4,7 @@ import sys, os, utils, numpy as np, pandas as pd, pickle
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import IntVector, FloatVector
 from numpy.lib.recfunctions import merge_arrays, stack_arrays
+ro.r['options'](warn=-1)
 
 
 def calibrateFeatures(ref, comp, params):
