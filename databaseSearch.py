@@ -98,7 +98,6 @@ def searchDatabase(features, paramFile, queue="gpu"):
     # Check the status of submitted jobs
     print()
     logging.info("  {} job(s) is/are submitted".format(nJobs))
-    logging.info("")
     checkJobStatus(jobNumbers)
 
     ########################################################
@@ -135,7 +134,6 @@ def searchDatabase(features, paramFile, queue="gpu"):
         # Check the status of submitted jobs
         if len(jobNumbers) > 0:
             print()
-            logging.info("")
             checkJobStatus(jobNumbers)
         else:
             isFinished = True
