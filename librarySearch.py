@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, re, sqlite3, utils, numpy as np, pandas as pd
+import sys, os, re, sqlite3, logging, utils, numpy as np, pandas as pd
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import FloatVector
 from featureAlignment import loess
@@ -200,6 +200,7 @@ def searchLibrary(full, paramFile):
     for libFile in params["library"]:
         doAlignment = params["library_rt_alignment"]
         print("  Library {} is being loaded".format(os.path.basename(libFile)))
+        logging.info("  Library {} is being loaded".format(os.path.basename(libFile)))
         try:
             conn = sqlite3.connect(libFile)
         except:
@@ -216,16 +217,21 @@ def searchLibrary(full, paramFile):
                 doAlignment = "2"
         if doAlignment == "0":
             print("  According to the parameter, RT-alignment is not performed between features and library compounds")
+            logging.info("  According to the parameter, RT-alignment is not performed between features and library compounds")
         elif doAlignment == "2":
             print("  Although the parameter is set to perform RT-alignment against the library, there is/are non-numeric value(s) in the library")
             print("  Therefore, RT-alignment is not performed")
+            logging.info("  Although the parameter is set to perform RT-alignment against the library, there is/are non-numeric value(s) in the library")
+            logging.info("  Therefore, RT-alignment is not performed")
             doAlignment = "0"
         elif doAlignment == "1":
             print("  RT-alignment is being performed between features and library compounds")
+            logging.info("  RT-alignment is being performed between features and library compounds")
             x, y = prepRtAlignment(full, conn, params)
             mod = rtAlignment(x, y)
             if mod == -1:
                 print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
+                logging.info("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
                 doAlignment = "0"
                 # params["library_rt_alignment"] = "0"
             else:
@@ -240,6 +246,7 @@ def searchLibrary(full, paramFile):
         ########################################
         # Match features and library compounds
         print("  Features are being compared with library compounds")
+        logging.info("  Features are being compared with library compounds")
         res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [],
                "id": [], "formula": [], "name": [], "ion": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
                "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}

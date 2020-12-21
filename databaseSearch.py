@@ -1,6 +1,5 @@
-import sys, os, re, math, subprocess, pickle, pandas as pd
+import sys, os, re, math, subprocess, pickle, logging, pandas as pd
 import utils
-from datetime import datetime
 from time import sleep
 
 # This is a wrapper for database search
@@ -37,6 +36,7 @@ def checkJobStatus(jobNumbers):
         text = "\r  {} job(s) is/are finished".format(nFinished)
         sys.stdout.write(text)
         sys.stdout.flush()
+    logging.info("  {} job(s) is/are finished".format(nFinished))
 
 
 def submitJobs(idx, featureFile, paramFile, memSize, queue="gpu"):
@@ -97,6 +97,8 @@ def searchDatabase(features, paramFile, queue="gpu"):
 
     # Check the status of submitted jobs
     print()
+    logging.info("  {} job(s) is/are submitted".format(nJobs))
+    logging.info("")
     checkJobStatus(jobNumbers)
 
     ########################################################
@@ -105,6 +107,8 @@ def searchDatabase(features, paramFile, queue="gpu"):
     ########################################################
     print()
     print("  Checking unfinished jobs")
+    logging.info("")
+    logging.info("  Checking unfinished jobs")
     isFinished = False
     while not isFinished:
         jobNumbers = []
@@ -127,14 +131,18 @@ def searchDatabase(features, paramFile, queue="gpu"):
                 text = "\r  {} job(s) is/are submitted".format(ii + 1)
                 sys.stdout.write(text)
                 sys.stdout.flush()
-
+        logging.info("  {} job(s) is/are submitted".format(ii + 1))
         # Check the status of submitted jobs
         if len(jobNumbers) > 0:
+            print()
+            logging.info("")
             checkJobStatus(jobNumbers)
         else:
             isFinished = True
     print()
     print("  All job(s) is/are finished")
+    logging.info("")
+    logging.info("  All job(s) is/are finished")
 
     ##########################
     # Postprocessing of jobs #

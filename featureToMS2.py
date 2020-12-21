@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
-import os, re, pickle, utils, numpy as np, pandas as pd
-# from numpy.lib.recfunctions import append_fields
+import os, re, pickle, logging, utils, numpy as np, pandas as pd
 from pyteomics import mzxml
 
 
@@ -122,6 +121,8 @@ def simplifyMs2(spec):
 def ms2ForFeatures(full, mzxmlFiles, paramFile):
     print("  Identification of MS2 spectra for the features")
     print("  ==============================================")
+    logging.info("  Identification of MS2 spectra for the features")
+    logging.info("  ==============================================")
     full = full.to_records(index = False)  # Change pd.DataFrame to np.RecArray for internal computation (speed issue)
 
     ######################################
@@ -157,6 +158,8 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
         progress = utils.progressBar(maxScan - minScan + 1)
         print("  %s is being processed" % os.path.basename(file))
         print("  Looking for MS2 scan(s) responsible for each feature")
+        logging.info("  %s is being processed" % os.path.basename(file))
+        logging.info("  Looking for MS2 scan(s) responsible for each feature")
         for i in range(minScan, maxScan + 1):
             progress.increment()
             spec = reader[str(i)]
@@ -219,6 +222,7 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
                                 featureToScan[fInd[i], m] += ";" + spec["num"]
 
         print("  Merging MS2 spectra for each feature within a run (it may take a while)")
+        logging.info("  Merging MS2 spectra for each feature within a run (it may take a while)")
         progress = utils.progressBar(nFeatures)
         for i in range(nFeatures):
             progress.increment()
@@ -228,6 +232,8 @@ def ms2ForFeatures(full, mzxmlFiles, paramFile):
 
     print("  Merging MS2 spectra for each feature between runs when there are multiple runs")
     print("  Simplification of MS2 spectrum for each feature by retaining the most strongest 100 peaks")
+    logging.info("  Merging MS2 spectra for each feature between runs when there are multiple runs")
+    logging.info("  Simplification of MS2 spectrum for each feature by retaining the most strongest 100 peaks")
     specArray = np.array([])
     progress = utils.progressBar(nFeatures)
     for i in range(nFeatures):

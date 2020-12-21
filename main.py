@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, re, utils, numpy as np, pandas as pd
+import sys, os, re, utils, logging, pandas as pd
 from featureDetection import detectFeatures
 from featureAlignment import alignFeatures
 from featureToMS2 import ms2ForFeatures
@@ -29,11 +29,17 @@ inputFiles = args[1:]
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
 
+logFile = "jump_m.log"
+logging.basicConfig(format='%(message)s', filename=logFile, level=logging.INFO)
+logging.info("Start from main.py")
+
 print()
 print("  Jump -m started")
+logging.info("  Jump -m started")
 now = datetime.now()
 nowString = now.strftime("%Y/%m/%d %H:%M:%S")
 print("  " + nowString)
+logging.info("  " + nowString)
 params = utils.getParams(paramFile)
 
 try:
@@ -44,6 +50,10 @@ try:
     print("  #####################")
     print("  # Feature detection #")
     print("  #####################")
+    logging.info("")
+    logging.info("  #####################")
+    logging.info("  # Feature detection #")
+    logging.info("  #####################")
     featureArray = []
     if params["skip_feature_detection"] == "0":
         nFiles = len(inputFiles)
@@ -69,8 +79,11 @@ try:
                 sys.exit("  {} should be in the directory where {} is located".format(os.path.basename(mzxmlFile), os.path.basename(file)))
         print("  According to the parameter setting, the feature detection is skipped")
         print("  Feature(s) is/are obtained from .feature file(s)")
+        logging.info("  According to the parameter setting, the feature detection is skipped")
+        logging.info("  Feature(s) is/are obtained from .feature file(s)")
 
     print()
+    logging.info("")
 
     #####################
     # Feature alignment #
@@ -86,9 +99,13 @@ try:
     print("  #####################")
     print("  # Feature alignment #")
     print("  #####################")
+    logging.info("  #####################")
+    logging.info("  # Feature alignment #")
+    logging.info("  #####################")
     fileNames = [os.path.basename(i) for i in inputFiles]
     fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(featureArray, fileNames, paramFile)
     print()
+    logging.info("")
 
     ############################################
     # MS2 spectrum generation for each feature #
@@ -96,8 +113,12 @@ try:
     print("  #######################################")
     print("  # Processing MS2 spectra for features #")
     print("  #######################################")
+    logging.info("  #######################################")
+    logging.info("  # Processing MS2 spectra for features #")
+    logging.info("  #######################################")
     fullFeatures, featureToScan = ms2ForFeatures(fullFeatures, inputFiles, paramFile)
     print()
+    logging.info("")
 
     ##################
     # Library search #
@@ -106,8 +127,12 @@ try:
         print("  ##################")
         print("  # Library search #")
         print("  ##################")
+        logging.info("  ##################")
+        logging.info("  # Library search #")
+        logging.info("  ##################")
         resLibrary = searchLibrary(fullFeatures, paramFile)
         print()
+        logging.info("")
 
     ######################################
     # Database search (using MetFragCLI) #
@@ -116,24 +141,19 @@ try:
         print("  ###################")
         print("  # Database search #")
         print("  ###################")
+        logging.info("  ###################")
+        logging.info("  # Database search #")
+        logging.info("  ###################")
         resDatabase = searchDatabase(fullFeatures, paramFile)
         print()
+        logging.info("")
 
     print("  Jump -m finished")
+    logging.info("  Jump -m finished")
     now = datetime.now()
     nowString = now.strftime("%Y/%m/%d %H:%M:%S")
     print("  " + nowString)
+    logging.info("  " + nowString)
 except KeyboardInterrupt:
     sys.exit()
 
-
-# import pickle, pandas as pd
-# from databaseSearch import searchDatabase
-#
-# # Pre-calculated (fully-aligned) features
-# features = pd.read_pickle("IROA_c18_target_full_features.pickle")
-# params = {"database": "/Research/Projects/7Metabolomics/Database/HMDB/hmdb_metabolites.csv",
-#           "formulaMzTol": 10, "peakMatchMzTol": 5}
-# res = searchDatabase(features.iloc[0:5], params)
-# res = pd.concat(res, ignore_index = True)
-# print(res)

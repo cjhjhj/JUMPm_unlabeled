@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, utils, numpy as np, pandas as pd, pickle
+import sys, os, utils, logging, numpy as np
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import IntVector, FloatVector
 from numpy.lib.recfunctions import merge_arrays, stack_arrays
@@ -29,11 +29,16 @@ def calibrateFeatures(ref, comp, params):
 
     # Calibration of RT and m/z globally
     print("  Global calibration of features is being performed")
+    logging.info("  Global calibration of features is being performed")
     rtShifts, mzShifts = globalCalibration(ref, comp, initMzTol)
     print("    Based on the matched features within %d ppm" % initMzTol)
     print("    The global RT-shift is %.4f second" % np.median(rtShifts))
     print("    The global m/z-shift is %.4f ppm" % np.median(mzShifts))
     print("    RT and m/z of the compared features are calibrated according to the above information")
+    logging.info("    Based on the matched features within %d ppm" % initMzTol)
+    logging.info("    The global RT-shift is %.4f second" % np.median(rtShifts))
+    logging.info("    The global m/z-shift is %.4f ppm" % np.median(mzShifts))
+    logging.info("    RT and m/z of the compared features are calibrated according to the above information")
     comp["RT"] = comp["RT"] - np.median(rtShifts)
     comp["mz"] = comp["mz"] / (1 + np.median(mzShifts) / 1e6)
 
@@ -44,25 +49,42 @@ def calibrateFeatures(ref, comp, params):
     print("    RT- and m/z-tolerances will be dynamically estimated over RT- and m/z-range as follows,")
     print("    RT- and m/z-tolerance = %d x dynamically estimated SD of RT- and m/z-shifts" % sdWidth)
     print("    LOESS modeling may take some time. Please be patient ...")
+    logging.info("  Local calibration of features is being performed (through LOESS modeling)")
+    logging.info("    RT- and m/z-tolerances will be dynamically estimated over RT- and m/z-range as follows,")
+    logging.info("    RT- and m/z-tolerance = %d x dynamically estimated SD of RT- and m/z-shifts" % sdWidth)
+    logging.info("    LOESS modeling may take some time. Please be patient ...")
     rtSd = np.maximum(1e-3, np.std(rtShifts, ddof=1))
     mzSd = np.maximum(1e-3, np.std(mzShifts, ddof=1))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "RT")
     print("    The 1st round of RT-calibration is done")
     print("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
     print("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
+    logging.info("    The 1st round of RT-calibration is done")
+    logging.info("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
+    logging.info("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "RT")
     print("    The 2nd round of RT-calibration is done")
     print("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
     print("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
+    logging.info("    The 2nd round of RT-calibration is done")
+    logging.info("      min SD of RT-shifts = %.4f second" % np.amin(rtSd))
+    logging.info("      max SD of RT-shifts = %.4f second" % np.amax(rtSd))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "mz")
     print("    The 1st round of m/z-calibration is done")
     print("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
     print("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
+    logging.info("    The 1st round of m/z-calibration is done")
+    logging.info("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
+    logging.info("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
     ref, comp, rtSd, mzSd = localCalibration(ref, comp, rtSd, mzSd, rLoess, rPredict, params, "mz")
     print("    The 2nd round of m/z-calibration is done")
     print("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
     print("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
     print()
+    logging.info("    The 2nd round of m/z-calibration is done")
+    logging.info("      min SD of m/z-shifts = %.4f ppm" % np.amin(mzSd))
+    logging.info("      max SD of m/z-shifts = %.4f ppm" % np.amax(mzSd))
+    logging.info("")
     return comp, rtSd, mzSd  # "comp" is the set of calibrated features
 
 
@@ -301,6 +323,7 @@ def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, 
     nRescue = 0
     nUnaligned = comp.shape[0] - len(compInd)
     print("    There are %d unaligned features" % nUnaligned)
+    logging.info("    There are %d unaligned features" % nUnaligned)
 
     # 1. Reduce variables to ones of unaligned features
     n = ref.shape[0]
@@ -323,26 +346,36 @@ def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, 
     uRatio = np.percentile(ratioAligned, 100 - (100 - ratioPct) / 2)
     print("    - Intensity higher than %d (median intensity of aligned features)" % intLevel)
     print("    - Ratio between reference and compared runs within %d %%" % ratioPct)
+    logging.info("    - Intensity higher than %d (median intensity of aligned features)" % intLevel)
+    logging.info("    - Ratio between reference and compared runs within %d %%" % ratioPct)
     if rtTolUnit == "1":
         print("    - RT-shifts within %s x SD of estimated RT-shifts from aligned features" % rtTol)
+        logging.info("    - RT-shifts within %s x SD of estimated RT-shifts from aligned features" % rtTol)
         rtTol = float(rtTol) * rtSd
     elif rtTolUnit == "2":
         print("    - RT-shifts less than %s seconds" % rtTol)
+        logging.info("    - RT-shifts less than %s seconds" % rtTol)
         rtTol = np.repeat(float(rtTol), len(uRefInd))
     else:
         print("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
         print("    Due to incorrect parameter settings, the rescue step is skipped")
+        logging.info("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
+        logging.info("    Due to incorrect parameter settings, the rescue step is skipped")
         return refInd, compInd
 
     if mzTolUnit == "1":
         print("    - m/z-shifts within %s x SD of estimated m/z-shifts from aligned features" % mzTol)
+        logging.info("    - m/z-shifts within %s x SD of estimated m/z-shifts from aligned features" % mzTol)
         mzTol = float(mzTol) * mzSd
     elif mzTolUnit == "2":
         print("    - m/z-shifts less than %s seconds" % mzTol)
+        logging.info("    - m/z-shifts less than %s seconds" % mzTol)
         mzTol = np.repeat(float(mzTol), len(uRefInd))
     else:
         print("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
         print("    Due to incorrect parameter settings, the rescue step is skipped")
+        logging.info("    WARNING: check your parameters for RT-tolerance unit. It should be either 1 or 2")
+        logging.info("    Due to incorrect parameter settings, the rescue step is skipped")
         return refInd, compInd
 
     # 3. Apply the criteria to unaligned features
@@ -378,6 +411,7 @@ def rescueComparableFeatures(ref, comp, refInd, compInd, rtSd, mzSd, rtTolUnit, 
                             compInd.append(uCompInd[ind])
                             nRescue += 1
     print("    Through the rescue procedure %d features are additionally aligned" % nRescue)
+    logging.info("    Through the rescue procedure %d features are additionally aligned" % nRescue)
     return (refInd, compInd)
 
 
@@ -442,6 +476,8 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             compName = os.path.basename(fNames[i])
             print("  " + refName + ": %d features (reference run)" % fArray[refNo].shape[0])
             print("  " + compName + ": %d features (compared run)" % fArray[i].shape[0])
+            logging.info("  " + refName + ": %d features (reference run)" % fArray[refNo].shape[0])
+            logging.info("  " + compName + ": %d features (compared run)" % fArray[i].shape[0])
             refInd, compInd = matchFeatures(fArray[refNo], fArray[i], rtSdArray[i], mzSdArray[i], params)
 
             # Alignment indication
@@ -454,6 +490,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             # print("  %d features are aligned between runs" % len(rowInd))
             indArray[refInd, i] = compInd
             print("  %d features are aligned between runs" % len(refInd))
+            logging.info("  %d features are aligned between runs" % len(refInd))
 
             # Optional/advanced function for rescuing some "unaligned" features by loosening tolerances
             if params["rescue"] == "1":
@@ -469,6 +506,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
                     # indArray[rowInd, i] = compInd
                     indArray[refInd, i] = compInd
     print()
+    logging.info("")
 
     # Indexes of fully- and partially-aligned features
     fullInd = range(indArray.shape[0])
@@ -532,6 +570,10 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
     print("  =======================")
     print("  After alignment/feature matching, fully-, partially- and un-aligned features are as follows")
     print("  Filename\t\tfully-aligned\tpartially-aligned\tun-aligned")
+    logging.info("  Alignment/match summary")
+    logging.info("  =======================")
+    logging.info("  After alignment/feature matching, fully-, partially- and un-aligned features are as follows")
+    logging.info("  Filename\t\tfully-aligned\tpartially-aligned\tun-aligned")
     nFull = len(fullInd)
     for i in range(n):
         if i == refNo:
@@ -540,6 +582,7 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             nPartial = np.sum(indArray[:, i] >= 0) - len(fullInd)
         nUn = unaligned[i].shape[0]
         print("  %s\t\t%d\t%d\t%d" % (fNames[i], nFull, nPartial, nUn))
+        logging.info("  %s\t\t%d\t%d\t%d" % (fNames[i], nFull, nPartial, nUn))
 
     # Depending on the parameter, "pct_full_alignment", some partially-aligned features can be included in fully-aligned ones
     pctFullAlignment = float(params["pct_full_alignment"])
@@ -554,11 +597,15 @@ def findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray, fNames, params):
             full = stack_arrays((full, partial[rowInd]), asrecarray=True, usemask=False)
             partial = np.delete(partial, rowInd, axis=0)
             print("  According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(rowInd))
+            logging.info("  According to the parameter setting, %d partially-aligned features are regarded as fully-aligned" % len(rowInd))
         else:
             print("  Since you have only two runs, there's no partially-aligned features")
+            logging.info("  Since you have only two runs, there's no partially-aligned features")
     else:
         print("  According to the parameter setting, no feature is added to the set of fully-aligned ones")
+        logging.info("  According to the parameter setting, no feature is added to the set of fully-aligned ones")
     print()
+    logging.info("")
     return full, partial, unaligned
 
 
@@ -583,6 +630,8 @@ def alignFeatures(fArray, xmlFiles, paramFile):
     if nFiles > 1:  # Multiple feature files -> alignment is required
         print("  Feature calibration")
         print("  ===================")
+        logging.info("  Feature calibration")
+        logging.info("  ===================")
 
         ###################################
         # Selection of a reference sample #
@@ -611,6 +660,7 @@ def alignFeatures(fArray, xmlFiles, paramFile):
             except:
                 sys.exit("  'reference_feature' parameter should be correctly specified")
         print("  %s is chosen as the reference run" % os.path.basename(xmlFiles[refNo]))
+        logging.info("  %s is chosen as the reference run" % os.path.basename(xmlFiles[refNo]))
 
         ############################################################
         # Calibration of features against those in a reference run #
@@ -622,6 +672,7 @@ def alignFeatures(fArray, xmlFiles, paramFile):
             featureNames.append(featureName)
             if i != refNo:
                 print("  " + featureName + " is being aligned against the reference run (it may take a while)")
+                logging.info("  " + featureName + " is being aligned against the reference run (it may take a while)")
                 fArray[i], rtSd, mzSd = calibrateFeatures(fArray[refNo], fArray[i], params)
                 rtSdArray.append(rtSd)
                 mzSdArray.append(mzSd)
@@ -634,6 +685,11 @@ def alignFeatures(fArray, xmlFiles, paramFile):
         print("  After calibration, RT- and m/z-shifts of each run (against the reference run) are centered to zero")
         print("  Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows,")
         print("  Filename\t\t\t#features\tSD of RT-shifts [second]\tSD of m/z-shifts [ppm]")
+        logging.info("  Calibration summary")
+        logging.info("  ===================")
+        logging.info("  After calibration, RT- and m/z-shifts of each run (against the reference run) are centered to zero")
+        logging.info("  Variations (i.e. standard deviation) of RT- and m/z-shifts are as follows,")
+        logging.info("  Filename\t\t\t#features\tSD of RT-shifts [second]\tSD of m/z-shifts [ppm]")
         for i in range(nFiles):
             nFeatures = str(fArray[i].shape[0])
             if i != refNo:
@@ -643,17 +699,22 @@ def alignFeatures(fArray, xmlFiles, paramFile):
                 meanRtSd = "NA"
                 meanMzSd = "NA"
             print("  " + featureNames[i] + "\t\t\t" + nFeatures + "\t" + meanRtSd + "\t" + meanMzSd)
+            logging.info("  " + featureNames[i] + "\t\t\t" + nFeatures + "\t" + meanRtSd + "\t" + meanMzSd)
         print()
+        logging.info("")
 
         #################################################################
         # Identification of fully-aligned features for further analysis #
         #################################################################
         print("  Feature alignment")
         print("  =================")
+        logging.info("  Feature alignment")
+        logging.info("  =================")
         fullFeatures, partialFeatures, unalignedFeatures = findMatchedFeatures(refNo, fArray, rtSdArray, mzSdArray,
                                                                                featureNames, params)
     else:
         print("  Since a single feature is used, the feature alignment is skipped")
+        logging.info("  Since a single feature is used, the feature alignment is skipped")
         fullFeatures = np.copy(fArray[0])  # Masked array to 2D numpy array
         colNames = list(fullFeatures.dtype.names)
         featureName = os.path.splitext(os.path.basename(xmlFiles[0]))[0]

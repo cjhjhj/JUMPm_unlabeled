@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
-import os, sys, glob, utils, numpy as np, pandas as pd
+import os, sys, utils, logging, numpy as np, pandas as pd
 from pyteomics import mzxml
-from numpy.lib.recfunctions import append_fields
 
 
 def detectPeaks(spec, params):
@@ -288,6 +287,7 @@ def detectFeatures(inputFile, paramFile):
     ################################
     filename = os.path.basename(inputFile)
     print("  Feature detection from %s" % filename)
+    logging.info("  Feature detection from " + filename)
     progress = utils.progressBar(msCount)
     for i in range(msCount):
         progress.increment()
