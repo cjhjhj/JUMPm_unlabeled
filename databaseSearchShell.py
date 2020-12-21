@@ -106,8 +106,16 @@ def runMetFrag(feature, params):
             intensityCols = [col for col in feature.keys() if col.lower().endswith("_intensity")]
             for c in intensityCols:
                 df[c] = feature[c]
-            columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                      ["Identifier", "MolecularFormula", "CompoundName", "Ion", "SMILES", "InChIKey", "FragmenterScore"]
+
+            # MetFrag or LipidFrag?
+            if params["lipidfrag"] == 1:
+                columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                          ["Identifier", "OtherIDs(PubChem;ChEBI;KEGG;HMDB;SwissLipid;LipidBank;PlantFA)", "MolecularFormula",
+                           "CompoundName", "SystematicName", "Synonyms", "Abbreviation", "Category", "MainClass", "SubClass",
+                           "Ion", "SMILES", "InChIKey", "FragmenterScore"]
+            else:
+                columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                          ["Identifier", "MolecularFormula", "CompoundName", "Ion", "SMILES", "InChIKey", "FragmenterScore"]
             df = df[columns]
             dfAll = dfAll.append(df, ignore_index=True)
             os.remove(paramFile)
