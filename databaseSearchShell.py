@@ -90,34 +90,35 @@ def runMetFrag(feature, params):
             cmd = "java -jar " + params["metfrag"] + " " + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is for linux only
             subprocess.call(cmd, shell=True)    # Subprocess is recommended instead of os.system
             df = pd.read_csv(outputFile)
-            if params["database"].lower() == "pubchem":
-                df = df.rename(columns = {"IUPACName": "CompoundName"})
-            df["feature_index"] = feature["feature_num"]
-            df["feature_m/z"] = feature["feature_m/z"]
-            df["feature_RT"] = feature["feature_RT"]
-            if k == "-H":
-                df["Ion"] = "[M" + str(k) + "]"
-            else:
-                df["Ion"] = "[M+" + str(k) + "]"
-            if params["mode"] == "1":
-                df["Ion"] = df["Ion"] + "+"
-            elif params["mode"] == "-1":
-                df["Ion"] = df["Ion"] + "-"
-            intensityCols = [col for col in feature.keys() if col.lower().endswith("_intensity")]
-            for c in intensityCols:
-                df[c] = feature[c]
+            if not df.empty:
+                if params["database"].lower() == "pubchem":
+                    df = df.rename(columns = {"IUPACName": "CompoundName"})
+                df["feature_index"] = feature["feature_num"]
+                df["feature_m/z"] = feature["feature_m/z"]
+                df["feature_RT"] = feature["feature_RT"]
+                if k == "-H":
+                    df["Ion"] = "[M" + str(k) + "]"
+                else:
+                    df["Ion"] = "[M+" + str(k) + "]"
+                if params["mode"] == "1":
+                    df["Ion"] = df["Ion"] + "+"
+                elif params["mode"] == "-1":
+                    df["Ion"] = df["Ion"] + "-"
+                intensityCols = [col for col in feature.keys() if col.lower().endswith("_intensity")]
+                for c in intensityCols:
+                    df[c] = feature[c]
 
-            # MetFrag or LipidFrag?
-            if params["lipidfrag"] == "1":
-                columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                          ["Identifier", "OtherIDs(PubChem;ChEBI;KEGG;HMDB;SwissLipid;LipidBank;PlantFA)", "MolecularFormula",
-                           "CompoundName", "SystematicName", "Synonyms", "Abbreviation", "Category", "MainClass", "SubClass",
-                           "Ion", "SMILES", "InChIKey", "FragmenterScore"]
-            else:
-                columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                          ["Identifier", "MolecularFormula", "CompoundName", "Ion", "SMILES", "InChIKey", "FragmenterScore"]
-            df = df[columns]
-            dfAll = dfAll.append(df, ignore_index=True)
+                # MetFrag or LipidFrag?
+                if params["lipidfrag"] == "1":
+                    columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                              ["Identifier", "OtherIDs(PubChem;ChEBI;KEGG;HMDB;SwissLipid;LipidBank;PlantFA)", "MolecularFormula",
+                               "CompoundName", "SystematicName", "Synonyms", "Abbreviation", "Category", "MainClass", "SubClass",
+                               "Ion", "SMILES", "InChIKey", "FragmenterScore"]
+                else:
+                    columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                              ["Identifier", "MolecularFormula", "CompoundName", "Ion", "SMILES", "InChIKey", "FragmenterScore"]
+                df = df[columns]
+                dfAll = dfAll.append(df, ignore_index=True)
             os.remove(paramFile)
             os.remove(ms2File)
             os.remove(outputFile)
