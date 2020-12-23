@@ -163,7 +163,7 @@ def searchDatabase(features, paramFile, queue="gpu"):
     if not os.path.exists(filePath):
         os.mkdir(filePath)
     outputFile = os.path.join(filePath, "align_" + params["output_name"] + ".database_matches")
-    res.to_csv(outputFile, sep="\t", index=False)
+    res.to_csv(outputFile, sep="\t", index=False, na_rep="NA")
 
     # os.system("rm " + os.path.join(tmpDir, "features_*"))
     # os.system("rm " + os.path.join(tmpDir, "job_*"))
