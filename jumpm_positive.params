@@ -28,6 +28,7 @@ library_rt_alignment = 1         # 0 = do not perform RT-alignment against libra
 database_search = 1                # 0 = do not search a database,  1 = search a database (database should be specified)
 database = /hpcf/authorized_apps/proteomics_apps/jumpm/python/database/HMDB/hmdb_metabolites.csv # Full path for a database (.CSV) file
 metfrag = /hpcf/authorized_apps/proteomics_apps/jumpm/python/metfrag/MetFrag2.4.5-CL.jar         # Full path for MetFrag CLI (jar file)
+lipidfrag = 0                      # 0 = do not run LipidFrag, 1 = run LipidFrag (for the prediction of lipid class)
 mass_tolerance_formula_search = 10 # PPM tolerance for searching chemical formula in a database
 mass_tolerance_ms2_peaks = 10      # PPM tolerance for comparing MS2 peaks between features and database entries
 
