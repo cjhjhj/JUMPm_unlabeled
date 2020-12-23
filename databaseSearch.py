@@ -16,8 +16,8 @@ def generateShell(jobNumber, featureFile, paramFile, mem=1000, queue="gpu"):
     cmd += "#BSUB -P prot\n"
     cmd += "#BSUB -q {}\n".format(queue)
     cmd += "#BSUB -R \"rusage[mem={}]\"\n".format(mem)
-    cmd += "#BSUB -e job_" + str(jobNumber) + ".e\n"
-    cmd += "#BSUB -o job_" + str(jobNumber) + ".o\n"
+    cmd += "#BSUB -eo job_" + str(jobNumber) + ".e\n"
+    cmd += "#BSUB -oo job_" + str(jobNumber) + ".o\n"
     cmd += "{} {} {} {}\n".format(binPath, dbSearchShell, featureFile, paramFile)
     f.write(cmd)
     f.close()
