@@ -8,8 +8,8 @@ from time import sleep
 
 def generateShell(jobNumber, featureFile, paramFile, mem=1000, queue="gpu"):
     binPath = r"/hpcf/authorized_apps/proteomics_apps/jumpm/python/conda/bin/python"
-    # dbSearchShell = r"/hpcf/authorized_apps/proteomics_apps/jumpm/python/current/databaseSearchShell.py"
-    dbSearchShell = r"/home/jcho/dev/JUMPm/python/current/databaseSearchShell.py"
+    dbSearchShell = r"/hpcf/authorized_apps/proteomics_apps/jumpm/python/current/databaseSearchShell.py"
+    # dbSearchShell = r"/home/jcho/dev/JUMPm/python/current/databaseSearchShell.py"
     filename = os.path.join(os.path.dirname(featureFile), "job_" + str(jobNumber) + ".sh")
     f = open(filename, "w")
     cmd = "#!/bin/bash\n"

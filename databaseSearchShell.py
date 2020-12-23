@@ -1,5 +1,8 @@
-import sys, os, re, math, pickle, datetime, subprocess, utils, pandas as pd
-from time import sleep
+import sys, os, re, pickle, subprocess, utils, pandas as pd
+import rpy2.robjects as ro
+from rpy2.robjects import pandas2ri
+from rpy2.robjects.conversion import localconverter
+ro.r['options'](warn=-1)
 
 
 def adductDictionary(params):
@@ -79,6 +82,31 @@ def generateFiles(feature, params, precursorIonMode):
     return paramFile, ms2File, outputFile
 
 
+def lipidFrag():
+    rstring = """
+    rLipidFrag = function(inputFile, mode) {
+        # generate models
+        cwd = getwd()  
+        setwd("/hpcf/authorized_apps/proteomics_apps/jumpm/python/lipidfrag/R")
+        source("lipidfrag_train.r")
+        source("lipidfrag_predict.r")
+
+        # initialise the prediction models
+        if (mode == "1") {
+            models <- generate.model("/hpcf/authorized_apps/proteomics_apps/jumpm/python/lipidfrag/data/model_scores_pos.txt")
+        } else {
+            models <- generate.model("/hpcf/authorized_apps/proteomics_apps/jumpm/python/lipidfrag/data/model_scores_neg.txt")
+        }
+
+        # predict the lipid (main-/sub-)class for a given MetFrag annotation
+        predicted = predict.lipidmaps.class(inputFile, models, sep=",")
+        setwd(cwd)    
+        return(predicted)
+    }
+    """
+    return ro.r(rstring)
+
+
 def runMetFrag(feature, params):
     if feature["MS2"] is not None:
         dfAll = pd.DataFrame()
@@ -91,6 +119,23 @@ def runMetFrag(feature, params):
             subprocess.call(cmd, shell=True)    # Subprocess is recommended instead of os.system
             df = pd.read_csv(outputFile)
             if not df.empty:
+                # LipidFrag (depending on the parameter)
+                if params["lipidfrag"] == "1":
+                    rLF = lipidFrag()
+                    pred = rLF(os.path.abspath(outputFile), "1")
+
+            df = pd.read_csv(outputFile, keep_default_na=False)
+            if not df.empty:
+                # Run LipidFrag, if necessary
+                if params["lipidfrag"] == "1":
+                    rLF = lipidFrag()
+                    pred = rLF(os.path.abspath(outputFile), 1)
+                    with localconverter(ro.default_converter + pandas2ri.converter):  # Conversio from rpy2 object to pandas dataframe
+                        pred = ro.conversion.rpy2py(pred)
+                    if not pred.empty:
+                        df = pd.merge(df, pred[["Identifier", "LipidMapsClass"]], how="left", on=["Identifier", "Identifier"])
+
+                # Organize the output dataframe
                 if params["database"].lower() == "pubchem":
                     df = df.rename(columns = {"IUPACName": "CompoundName"})
                 df["feature_index"] = feature["feature_num"]
@@ -108,12 +153,12 @@ def runMetFrag(feature, params):
                 for c in intensityCols:
                     df[c] = feature[c]
 
-                # MetFrag or LipidFrag?
+                # Formatting of output dataframe
                 if params["lipidfrag"] == "1":
                     columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
                               ["Identifier", "OtherIDs(PubChem;ChEBI;KEGG;HMDB;SwissLipid;LipidBank;PlantFA)", "MolecularFormula",
                                "CompoundName", "SystematicName", "Synonyms", "Abbreviation", "Category", "MainClass", "SubClass",
-                               "Ion", "SMILES", "InChIKey", "FragmenterScore"]
+                               "Ion", "SMILES", "InChIKey", "FragmenterScore", "LipidMapsClass"]
                 else:
                     columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
                               ["Identifier", "MolecularFormula", "CompoundName", "Ion", "SMILES", "InChIKey", "FragmenterScore"]
@@ -142,5 +187,5 @@ for idx, row in features.iterrows():
     df = runMetFrag(row, params)
     res = res.append(df, ignore_index=True)
 outputFile = os.path.splitext(featureFile)[0] + ".csv"
-res.to_csv(outputFile, sep="\t", index=False)
+res.to_csv(outputFile, sep="\t", index=False, na_rep="NA")
 

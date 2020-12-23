@@ -30,6 +30,8 @@ inputFiles = args[1:]
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
 
 logFile = "jump_m.log"
+if os.path.exists(logFile):
+    os.system("rm " + logFile)
 logging.basicConfig(format='%(message)s', filename=logFile, level=logging.INFO)
 logging.info("Start from main.py")
 
