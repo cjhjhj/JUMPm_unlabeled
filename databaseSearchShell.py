@@ -147,7 +147,7 @@ def runMetFrag(feature, params):
                     df[c] = feature[c]
 
                 # Formatting of output dataframe
-                if params["lipidfrag"] == "1":
+                if "lipidfrag" in params and params["lipidfrag"] == "1":
                     columns = ["feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
                               ["Identifier", "OtherIDs(PubChem;ChEBI;KEGG;HMDB;SwissLipid;LipidBank;PlantFA)", "MolecularFormula",
                                "CompoundName", "SystematicName", "Synonyms", "Abbreviation", "Category", "MainClass", "SubClass",
