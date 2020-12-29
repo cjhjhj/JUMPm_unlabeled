@@ -120,7 +120,7 @@ def runMetFrag(feature, params):
             df = pd.read_csv(outputFile)
             if not df.empty:
                 # LipidFrag (depending on the parameter)
-                if params["lipidfrag"] == "1":
+                if "lipidfrag" in params and params["lipidfrag"] == "1":
                     rLF = lipidFrag()
                     pred = rLF(os.path.abspath(outputFile), "1")
 
