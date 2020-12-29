@@ -117,17 +117,10 @@ def runMetFrag(feature, params):
             # MetFrag should be installed first and its path should be put to the following command
             cmd = "java -jar " + params["metfrag"] + " " + paramFile + "> /dev/null 2>&1" # "> /dev/null 2>&1" is for linux only
             subprocess.call(cmd, shell=True)    # Subprocess is recommended instead of os.system
-            df = pd.read_csv(outputFile)
-            if not df.empty:
-                # LipidFrag (depending on the parameter)
-                if "lipidfrag" in params and params["lipidfrag"] == "1":
-                    rLF = lipidFrag()
-                    pred = rLF(os.path.abspath(outputFile), "1")
-
             df = pd.read_csv(outputFile, keep_default_na=False)
             if not df.empty:
                 # Run LipidFrag, if necessary
-                if params["lipidfrag"] == "1":
+                if "lipidfrag" in params and params["lipidfrag"] == "1":
                     rLF = lipidFrag()
                     pred = rLF(os.path.abspath(outputFile), 1)
                     with localconverter(ro.default_converter + pandas2ri.converter):  # Conversio from rpy2 object to pandas dataframe
