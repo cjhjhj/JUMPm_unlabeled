@@ -1,4 +1,4 @@
-import re, sys, os, pickle, numpy as np, pandas as pd
+import re, sys, os, logging, numpy as np, pandas as pd
 
 
 def getParams(paramFile):
@@ -174,13 +174,14 @@ def generateSummarizedFeatureFile(nFeatures, full, ms2, params):
 
 
 def processQuantityData(df, params):
-    print("  Quantity information")
+    print("  Loading-bias summary")
     print("  ====================")
+    logging.info("  Loading-bias summary")
+    logging.info("  ====================")
     intensityCols = [col for col in df.columns if col.lower().endswith("_intensity")]
     expr = df[intensityCols]
 
     # Calculation and print-out loading bias information
-    print("  Loading-bias summary")
     sampleNames = expr.columns
     rowMeans = expr.mean(axis=1)
     lexpr = np.log2(expr.div(rowMeans, axis=0))
@@ -193,9 +194,10 @@ def processQuantityData(df, params):
     sdIntensity = ((2 ** sdVal - 1) + (1 - 2 ** (-sdVal))) / 2 * 100
     semIntensity = sdIntensity / np.sqrt(len(idx))
     print("  Sample_name\tMean[%]\tSD[%]\tSEM[%]\t#features")
+    logging.info("  Sample_name\tMean[%]\tSD[%]\tSEM[%]\t#features")
     for i in range(expr.shape[1]):
-        print("  {}\t{:.2f}\t{:.2f}\t{:.2f}\t{}".format(intensityCols[i].replace("_intensity", ""), meanIntensity[i],
-                                                        sdIntensity[i], semIntensity[i], len(idx)))
+        print("  {}\t{:.2f}\t{:.2f}\t{:.2f}\t{}".format(intensityCols[i].replace("_intensity", ""), meanIntensity[i], sdIntensity[i], semIntensity[i], len(idx)))
+        logging.info("  {}\t{:.2f}\t{:.2f}\t{:.2f}\t{}".format(intensityCols[i].replace("_intensity", ""), meanIntensity[i], sdIntensity[i], semIntensity[i], len(idx)))
 
     # Normalization using trimmed-mean values (loading-bias correction)
     lexpr = np.log2(expr)
