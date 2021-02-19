@@ -248,7 +248,7 @@ def searchLibrary(full, paramFile):
         # Match features and library compounds
         print("  Features are being compared with library compounds")
         logging.info("  Features are being compared with library compounds")
-        res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [],
+        res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [], "feature_calibrated_RT": [],
                "id": [], "formula": [], "name": [], "ion": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
                "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}
         intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
@@ -292,8 +292,10 @@ def searchLibrary(full, paramFile):
                         pMs2 = max(np.finfo(float).eps, pMs2)   # Prevent the underflow caused by 0
 
                         # Calculate the (similarity?) score based on RT-shift
+                        fcRt = None
                         if doAlignment == "1":
-                            rtShift = full["feature_calibrated_RT"].iloc[i] - df["rt"].iloc[j]
+                            fcRt = full["feature_calibrated_RT"].iloc[i]
+                            rtShift = fcRt - df["rt"].iloc[j]
                             pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score (the smaller, the better)
                             pRt = max(np.finfo(float).eps, pRt)
                             simRt = 1 - pRt
@@ -345,8 +347,13 @@ def searchLibrary(full, paramFile):
 
         conn.close()
         res = pd.DataFrame.from_dict(res)
-        resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                  ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
+        if doAlignment == "1":
+            resCols = ["no", "feature_index", "feature_m/z", "feature_RT", "feature_calibrated_RT"] + intensityCols + \
+                      ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score",
+                       "MS2_score", "combined_score"]
+        else:
+            resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                      ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
         res = res[resCols]
         filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
         outputFile = os.path.join(filePath, "align_" + params["output_name"] + "." + str(nLibs) + ".library_matches")
