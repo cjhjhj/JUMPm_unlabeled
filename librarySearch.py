@@ -237,6 +237,7 @@ def searchLibrary(full, paramFile):
             else:
                 # Calibration of features' RT
                 rPredict = ro.r("predict")
+                full["feature_calibrated_RT"] = None
                 full["feature_calibrated_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
                 # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
                 ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
@@ -264,7 +265,6 @@ def searchLibrary(full, paramFile):
                 continue
             fMz = full["feature_m/z"].iloc[i]
             fRt = full["feature_RT"].iloc[i]
-            fcRt = full["feature_calibrated_RT"].iloc[i]
             fIntensity = full[intensityCols].iloc[i]
             if params["mode"] == "1":  # Positive mode
                 fMass = fZ * (fMz - proton)
@@ -293,7 +293,7 @@ def searchLibrary(full, paramFile):
 
                         # Calculate the (similarity?) score based on RT-shift
                         if doAlignment == "1":
-                            rtShift = fcRt - df["rt"].iloc[j]
+                            rtShift = full["feature_calibrated_RT"].iloc[i] - df["rt"].iloc[j]
                             pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score (the smaller, the better)
                             pRt = max(np.finfo(float).eps, pRt)
                             simRt = 1 - pRt
