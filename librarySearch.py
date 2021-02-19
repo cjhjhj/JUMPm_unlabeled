@@ -347,13 +347,16 @@ def searchLibrary(full, paramFile):
 
         conn.close()
         res = pd.DataFrame.from_dict(res)
-        if doAlignment == "1":
-            resCols = ["no", "feature_index", "feature_m/z", "feature_RT", "feature_calibrated_RT"] + intensityCols + \
-                      ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score",
-                       "MS2_score", "combined_score"]
-        else:
-            resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                      ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
+        resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+                  ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score",
+                   "MS2_score", "combined_score"]
+        # if doAlignment == "1":
+        #     resCols = ["no", "feature_index", "feature_m/z", "feature_RT", "feature_calibrated_RT"] + intensityCols + \
+        #               ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score",
+        #                "MS2_score", "combined_score"]
+        # else:
+        #     resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
+        #               ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
         res = res[resCols]
         filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
         outputFile = os.path.join(filePath, "align_" + params["output_name"] + "." + str(nLibs) + ".library_matches")
