@@ -248,7 +248,7 @@ def searchLibrary(full, paramFile):
         # Match features and library compounds
         print("  Features are being compared with library compounds")
         logging.info("  Features are being compared with library compounds")
-        res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [], "feature_calibrated_RT": [],
+        res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [],
                "id": [], "formula": [], "name": [], "ion": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
                "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}
         intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
