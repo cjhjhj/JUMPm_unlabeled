@@ -321,7 +321,7 @@ def searchLibrary(full, paramFile):
                         res["feature_index"].append(i + 1)
                         res["feature_m/z"].append(fMz)
                         res["feature_RT"].append(fRt / 60)  # For output, the unit of RT is minute
-                        res["feature_calibrated_RT"].append(fcRt / 60)
+                        # res["feature_calibrated_RT"].append(fcRt / 60)
                         for c in intensityCols:
                             res[c].append(fIntensity[c])
                         res["id"].append(libId)
