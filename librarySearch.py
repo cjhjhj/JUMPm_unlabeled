@@ -119,7 +119,7 @@ def prepRtAlignment(f, c, params):
 def rtAlignment(x, y):
     # x: RT of features
     # y: RT-shift between features and library compounds
-    if len(x) < 50:
+    if len(x) < 10:
         return -1
 
     # LOESS modeling
@@ -131,7 +131,7 @@ def rtAlignment(x, y):
     lL = truncatedMean - 3 * truncatedSd
     uL = truncatedMean + 3 * truncatedSd
     ind = np.where((y >= lL) & (y <= uL))[0]
-    if len(ind) >= 50:  # At least 50 data points for LOESS
+    if len(ind) >= 10:  # At least 10 data points for LOESS
         # LOESS fitting and calibrate feature RT
         mod = rLoess(FloatVector(x[ind]), FloatVector(y[ind]))  # LOESS between featureRT vs. RTshift
         return mod
