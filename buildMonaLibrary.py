@@ -24,7 +24,7 @@ n = 0
 proton = 1.007276466812
 flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
 uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, precmz, charge = \
-    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None, None
+    "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
 smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
     "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
 
@@ -120,7 +120,7 @@ with open(sdfFile, encoding="utf-8") as f:
 
             # Re-initialize variables (for next compound)
             uid, otherIds, name, synonym, formula, energy, inchikey, smiles, iontype, rt, mass, precmz, charge = \
-                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None, None
+                "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", None, None, None
             smile, kegg, hmdb, pcid, psid, chebi, chemspider, cas = \
                 "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"
             flagSynonym, flagComment, flagMS2, nPeaks = 0, 0, 0, 0
@@ -139,16 +139,6 @@ with open(sdfFile, encoding="utf-8") as f:
                     smiles = line.replace("SMILES=", "")
                 elif line.startswith("retention time"):
                     rt = line.replace("retention time=", "")
-                    if rt.endswith("min") or rt.endswith("minutes") or rt.endswith("minute") or rt.endswith("m"):
-                        try:
-                            rt = float(re.search("[0-9.]+", rt).group()) * 60  # Convert to numeric value and the unit of second
-                        except (NameError, AttributeError):
-                            rt = None
-                    elif rt.endswith("sec") or rt.endswith("seconds") or rt.endswith("second") or rt.endswith("s"):
-                        try:
-                            rt = float(re.search("[0-9.]+", rt).group())
-                        except (NameError, AttributeError):
-                            rt = None
                 elif line.startswith("exact mass") and mass == "NA":
                     mass = float(line.replace("exact mass=", ""))
                 elif line.startswith("ion type") and iontype == "NA":
@@ -179,8 +169,8 @@ print("\n  Finished inserting MS2 spectra to the database")
 ###########################################################################
 # Organize the DataFrame of library table (with the generation of decoys) #
 ###########################################################################
-dfLib = pd.DataFrame.from_dict(dictLib, orient = "columns")
-dfLib = dfLib.rename(columns = {"other_ids": "other_ids(KEGG;HMDB;PubChem_CID;PubChem_SID;ChEBI;ChemSpider;CAS)",
+dfLib = pd.DataFrame.from_dict(dictLib, orient="columns")
+dfLib = dfLib.rename(columns={"other_ids": "other_ids(KEGG;HMDB;PubChem_CID;PubChem_SID;ChEBI;ChemSpider;CAS)",
                                 "energy": "collision_energy"})
 dfDecoy = dfLib.copy()
 proton = 1.007276466812
@@ -191,8 +181,8 @@ if condition[-1] == "p":
     dfDecoy["precursor_mz"] = (dfDecoy["mass"] + dfDecoy["charge"] * proton) / dfDecoy["charge"]
 elif condition[-1] == "n":
     dfDecoy["precursor_mz"] = (dfDecoy["mass"] - dfDecoy["charge"] * proton) / dfDecoy["charge"]
-dfLib = dfLib.append(dfDecoy, ignore_index = True)
-dfLib.to_sql("library", conn, if_exists = "replace")    # Table name is "library"
+dfLib = dfLib.append(dfDecoy, ignore_index=True)
+dfLib.to_sql("library", conn, if_exists="replace")    # Table name is "library"
 conn.close()
 print("  Finished inserting a library table to the database")
 print()
