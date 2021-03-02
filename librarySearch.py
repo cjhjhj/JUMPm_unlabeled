@@ -119,7 +119,7 @@ def prepRtAlignment(f, c, params):
 def rtAlignment(x, y):
     # x: RT of features
     # y: RT-shift between features and library compounds
-    if len(x) < 10:
+    if len(x) < 20:
         return -1
 
     # LOESS modeling
@@ -198,7 +198,7 @@ def searchLibrary(full, paramFile):
     allRes = pd.DataFrame()
     nLibs = 1
     for libFile in params["library"]:
-        doAlignment = params["library_rt_alignment"]
+        doAlignment = int(params["library_rt_alignment"])
         print("  Library {} is being loaded".format(os.path.basename(libFile)))
         logging.info("  Library {} is being loaded".format(os.path.basename(libFile)))
         try:
@@ -210,37 +210,42 @@ def searchLibrary(full, paramFile):
         # RT-alignment between features and library entries #
         #####################################################
         # Check whether 'rt' column of the library is numeric value or not
-        if doAlignment == "1":
-            preQuery = r"SELECT rt FROM library ORDER BY ROWID ASC LIMIT 1"
-            preDf = pd.read_sql_query(preQuery, conn)
-            if "float" not in str(preDf["rt"].dtype):
-                doAlignment = "2"
-        if doAlignment == "0":
+        hasNumericRt = 0
+        cursor = conn.execute("PRAGMA table_info(library)")
+        pragma = cursor.fetchall()
+        for row in pragma:
+            if row[1].lower() == "rt":
+                if row[2].lower() == "real":
+                    hasNumericRt = 1
+                break
+
+        # RT-alignment
+        if doAlignment == 1:
+            if hasNumericRt == 1:
+                print("  RT-alignment is being performed between features and library compounds")
+                logging.info("  RT-alignment is being performed between features and library compounds")
+                x, y = prepRtAlignment(full, conn, params)
+                mod = rtAlignment(x, y)
+                if mod == -1:
+                    print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
+                    logging.info("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
+                    doAlignment = 0
+                else:
+                    # Calibration of features' RT
+                    rPredict = ro.r("predict")
+                    full["feature_calibrated_RT"] = None
+                    full["feature_calibrated_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
+                    # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
+                    ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
+            else:
+                print("  Although the parameter is set to perform RT-alignment against the library, there are no valid RT values in the library")
+                print("  Therefore, RT-alignment is not performed")
+                logging.info("  Although the parameter is set to perform RT-alignment against the library, there are no valid RT values in the library")
+                logging.info("  Therefore, RT-alignment is not performed")
+                doAlignment = 0
+        else:
             print("  According to the parameter, RT-alignment is not performed between features and library compounds")
             logging.info("  According to the parameter, RT-alignment is not performed between features and library compounds")
-        elif doAlignment == "2":
-            print("  Although the parameter is set to perform RT-alignment against the library, there is/are non-numeric value(s) in the library")
-            print("  Therefore, RT-alignment is not performed")
-            logging.info("  Although the parameter is set to perform RT-alignment against the library, there is/are non-numeric value(s) in the library")
-            logging.info("  Therefore, RT-alignment is not performed")
-            doAlignment = "0"
-        elif doAlignment == "1":
-            print("  RT-alignment is being performed between features and library compounds")
-            logging.info("  RT-alignment is being performed between features and library compounds")
-            x, y = prepRtAlignment(full, conn, params)
-            mod = rtAlignment(x, y)
-            if mod == -1:
-                print("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
-                logging.info("  Since there are TOO FEW feature RTs comparable to library RTs, RT-alignment is skipped")
-                doAlignment = "0"
-                # params["library_rt_alignment"] = "0"
-            else:
-                # Calibration of features' RT
-                rPredict = ro.r("predict")
-                full["feature_calibrated_RT"] = None
-                full["feature_calibrated_RT"] = full["feature_RT"] - rPredict(mod, FloatVector(full["feature_RT"]))
-                # Empirical CDF of alignment (absolute) residuals (will be used to calculate RT shift-based scores)
-                ecdfRt = ECDF(abs(np.array(mod.rx2("residuals"))))
 
         ########################################
         # Match features and library compounds #
@@ -248,8 +253,8 @@ def searchLibrary(full, paramFile):
         # Match features and library compounds
         print("  Features are being compared with library compounds")
         logging.info("  Features are being compared with library compounds")
-        res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_RT": [],
-               "id": [], "formula": [], "name": [], "ion": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
+        res = {"no": [], "feature_index": [], "feature_m/z": [], "feature_original_RT": [], "feature_aligned_RT": [],
+               "id": [], "other_id": [], "formula": [], "name": [], "ion": [], "RT": [], "SMILES": [], "InchiKey": [], "collision_energy": [],
                "RT_shift": [], "RT_score": [], "MS2_score": [], "combined_score": []}
         intensityCols = [col for col in full.columns if col.lower().endswith("_intensity")]
         for c in intensityCols:
@@ -273,9 +278,11 @@ def searchLibrary(full, paramFile):
 
             # Retrieve library compounds of which neutral masses are similar to feature mass
             df = queryLibrary(fMz, fMass, fZ, conn, adducts, matchMzTol)
-
             if not df.empty:
+                colNameOtherId = df.filter(regex="other_ids").columns[0]
                 for j in range(df.shape[0]):
+                    # When there is/are library compound(s) matched to the feature,
+                    # MS2 of the library compound(s) should be retrieved
                     uid = df["id"].iloc[j]
                     uid = uid.replace("##Decoy_", "")
                     sqlQuery = r"SELECT * FROM {}".format(uid)
@@ -292,10 +299,9 @@ def searchLibrary(full, paramFile):
                         pMs2 = max(np.finfo(float).eps, pMs2)   # Prevent the underflow caused by 0
 
                         # Calculate the (similarity?) score based on RT-shift
-                        fcRt = None
-                        if doAlignment == "1":
-                            fcRt = full["feature_calibrated_RT"].iloc[i]
-                            rtShift = fcRt - df["rt"].iloc[j]
+                        if doAlignment == 1:
+                            fAlignedRt = full["feature_calibrated_RT"].iloc[i]
+                            rtShift = fAlignedRt - df["rt"].iloc[j]
                             pRt = ecdfRt(abs(rtShift))  # Also, p-value-like score (the smaller, the better)
                             pRt = max(np.finfo(float).eps, pRt)
                             simRt = 1 - pRt
@@ -303,15 +309,24 @@ def searchLibrary(full, paramFile):
                             p = 1 - stats.chi2.cdf(-2 * (np.log(pMs2) + np.log(pRt)), 4)    # Fisher's method
                             # p = -2 * (np.log(pMs2) + np.log(pRt))   # Fisher's method used in Perl pipeline (the smaller, the better)
                         else:
-                            rtShift = None
+                            fAlignedRt = "NA"
+                            if hasNumericRt == 1 and df["rt"].iloc[j] is not None:
+                                rtShift = fRt - df["rt"].iloc[j]
+                            else:
+                                rtShift = "NA"
                             pRt = 1
                             simRt = 1 - pRt
                             p = pMs2
 
                         # Output
                         libId = df["id"].iloc[j]
+                        libOtherId = df[colNameOtherId].iloc[j]
                         libFormula = df["formula"].iloc[j]
                         libName = df["name"].iloc[j]
+                        if hasNumericRt == 1:
+                            libRt = df["rt"].iloc[j]
+                        else:
+                            libRt = "NA"
                         libIon = df["ion_type"].iloc[j]
                         libSmiles = df["smiles"].iloc[j]
                         libInchiKey = df["inchikey"].iloc[j]
@@ -320,25 +335,28 @@ def searchLibrary(full, paramFile):
                         res["no"].append(n)
                         res["feature_index"].append(i + 1)
                         res["feature_m/z"].append(fMz)
-                        res["feature_RT"].append(fRt / 60)  # For output, the unit of RT is minute
-                        # res["feature_calibrated_RT"].append(fcRt / 60)
+                        res["feature_original_RT"].append(fRt / 60)  # For output, the unit of RT is minute
+                        if doAlignment == 1:
+                            res["feature_aligned_RT"].append(fAlignedRt / 60)
+                        else:
+                            res["feature_aligned_RT"].append(fAlignedRt)
                         for c in intensityCols:
                             res[c].append(fIntensity[c])
                         res["id"].append(libId)
+                        res["other_id"].append(libOtherId)
                         res["formula"].append(libFormula)
                         res["name"].append(libName)
                         res["ion"].append(libIon)
+                        if hasNumericRt == 1:
+                            res["RT"].append(libRt / 60)
+                        else:
+                            res["RT"].append(libRt)
                         res["SMILES"].append(libSmiles)
                         res["InchiKey"].append(libInchiKey)
                         res["collision_energy"].append(libEnergy)
-                        if rtShift is not None:
+                        if rtShift != "NA":
                             rtShift = abs(rtShift) / 60  # Convert to "minute"
-                        else:
-                            rtShift = "NA"
                         res["RT_shift"].append(rtShift)
-                        # res["RT_score"].append(abs(-np.log10(pRt)))  # Scores are transformed by -log10
-                        # res["MS2_score"].append(abs(-np.log10(pMS2)))
-
                         # Haiyan's preference
                         # RT_score and MS2_score: 0 ~ 1 (bad to good)
                         res["RT_score"].append(simRt)
@@ -347,20 +365,15 @@ def searchLibrary(full, paramFile):
 
         conn.close()
         res = pd.DataFrame.from_dict(res)
-        resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-                  ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score",
-                   "MS2_score", "combined_score"]
-        # if doAlignment == "1":
-        #     resCols = ["no", "feature_index", "feature_m/z", "feature_RT", "feature_calibrated_RT"] + intensityCols + \
-        #               ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score",
-        #                "MS2_score", "combined_score"]
-        # else:
-        #     resCols = ["no", "feature_index", "feature_m/z", "feature_RT"] + intensityCols + \
-        #               ["id", "formula", "name", "ion", "SMILES", "InchiKey", "collision_energy", "RT_shift", "RT_score", "MS2_score", "combined_score"]
+        resCols = ["no", "feature_index", "feature_m/z", "feature_original_RT", "feature_aligned_RT"] + intensityCols + \
+                  ["id", "other_id", "formula", "name", "ion", "RT", "SMILES", "InchiKey", "collision_energy", "RT_shift",
+                   "RT_score", "MS2_score", "combined_score"]
         res = res[resCols]
+        res = res.rename(columns={"other_id": colNameOtherId})
+
         filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
         outputFile = os.path.join(filePath, "align_" + params["output_name"] + "." + str(nLibs) + ".library_matches")
-        res.to_csv(outputFile, sep="\t", index=False)
+        # res.to_csv(outputFile, sep="\t", index=False)
         allRes = allRes.append(res, ignore_index = True)
         nLibs += 1
 
