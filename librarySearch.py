@@ -373,7 +373,7 @@ def searchLibrary(full, paramFile):
 
         filePath = os.path.join(os.getcwd(), "align_" + params["output_name"])
         outputFile = os.path.join(filePath, "align_" + params["output_name"] + "." + str(nLibs) + ".library_matches")
-        # res.to_csv(outputFile, sep="\t", index=False)
+        res.to_csv(outputFile, sep="\t", index=False)
         allRes = allRes.append(res, ignore_index = True)
         nLibs += 1
 
