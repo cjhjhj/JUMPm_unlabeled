@@ -145,16 +145,6 @@ with open(sdfFile, encoding="utf-8") as f:
                     smiles = line.replace("SMILES=", "")
                 elif line.startswith("retention time"):
                     rt = line.replace("retention time=", "")
-                    if rt.endswith("min") or rt.endswith("minutes") or rt.endswith("minute") or rt.endswith("m"):
-                        try:
-                            rt = float(re.search("[0-9.]+", rt).group()) * 60  # Convert to numeric value and the unit of second
-                        except (NameError, AttributeError):
-                            rt = None
-                    elif rt.endswith("sec") or rt.endswith("seconds") or rt.endswith("second") or rt.endswith("s"):
-                        try:
-                            rt = float(re.search("[0-9.]+", rt).group())
-                        except (NameError, AttributeError):
-                            rt = None
                 elif line.startswith("exact mass") and mass == "NA":
                     mass = float(line.replace("exact mass=", ""))
                 elif line.startswith("ion type") and iontype == "NA":

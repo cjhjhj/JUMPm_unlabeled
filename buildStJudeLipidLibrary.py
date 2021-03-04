@@ -55,6 +55,7 @@ dfLib = df[["idstjude", "name", "synonym", "formula", "monoisotopic_mass", "SMIL
 dfLib["inchikey"] = "NA"
 dfLib = dfLib.rename(columns = {"idstjude": "id", "monoisotopic_mass": "mass"})
 dfLib.columns = dfLib.columns.str.lower()    # Column names are all lowercases
+dfLib[colNameOtherIds] = otherIds
 
 # Spectral metadata table
 dfLib["collision_energy"] = df[condition + "_ms2setting"]

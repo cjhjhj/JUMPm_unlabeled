@@ -314,8 +314,8 @@ def searchLibrary(full, paramFile):
                                 rtShift = fRt - df["rt"].iloc[j]
                             else:
                                 rtShift = "NA"
-                            pRt = 1
-                            simRt = 1 - pRt
+                            # pRt = 1
+                            simRt = "NA"
                             p = pMs2
 
                         # Output
