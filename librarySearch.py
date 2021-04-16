@@ -68,16 +68,16 @@ def calcMS2Similarity(featSpec, libSpec, params):
         if key in libDict:
             s[val]["lib"] += np.sqrt(libDict[key])
 
-    den, num1, num2 = 0, 0, 0
+    num, den1, den2 = 0, 0, 0    # numerator, denominator1, denominator2
     for mz in s.keys():
-        den += s[mz]["feat"] * s[mz]["lib"]
-        num1 += s[mz]["feat"] ** 2
-        num2 += s[mz]["lib"] ** 2
+        num += s[mz]["feat"] * s[mz]["lib"]
+        den1 += s[mz]["feat"] ** 2
+        den2 += s[mz]["lib"] ** 2
 
-    if num1 * num2 == 0:
+    if den1 * den2 == 0:
         normDotProduct = 0
     else:
-        normDotProduct = den / np.sqrt(num1 * num2)
+        normDotProduct = num / np.sqrt(den1 * den2)
     return normDotProduct
 
 
