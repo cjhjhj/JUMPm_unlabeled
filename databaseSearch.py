@@ -6,7 +6,7 @@ from time import sleep
 # Actual database search jobs are submitted to LSF and done using databaseSearchShell.py
 
 
-def generateShell(jobNumber, featureFile, paramFile, mem=1000, queue="gpu"):
+def generateShell(jobNumber, featureFile, paramFile, mem=1000, queue="standard"):
     binPath = r"/hpcf/authorized_apps/proteomics_apps/jumpm/python/conda/bin/python"
     dbSearchShell = r"/hpcf/authorized_apps/proteomics_apps/jumpm/python/current/databaseSearchShell.py"
     # dbSearchShell = r"/home/jcho/dev/JUMPm/python/current/databaseSearchShell.py"
@@ -39,7 +39,7 @@ def checkJobStatus(jobNumbers):
     logging.info("  {} job(s) is/are finished".format(nFinished))
 
 
-def submitJobs(idx, featureFile, paramFile, memSize, queue="gpu"):
+def submitJobs(idx, featureFile, paramFile, memSize, queue="standard"):
     # Generation of .sh file (for each job)
     generateShell(idx, featureFile, paramFile, memSize, queue)
 
@@ -53,7 +53,7 @@ def submitJobs(idx, featureFile, paramFile, memSize, queue="gpu"):
     return jobNumber
 
 
-def searchDatabase(features, paramFile, queue="gpu"):
+def searchDatabase(features, paramFile, queue="standard"):
     # features: fully-aligned features (pandas DataFrame)
     # paramFile: paramter file
 
