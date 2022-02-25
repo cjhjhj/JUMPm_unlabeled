@@ -13,7 +13,7 @@ import sys, os, sqlite3, numpy as np, pandas as pd
 # Handling of library template #
 ################################
 # Initialization (path of library template file and experimental condition)
-# templateFile = r"/Research/Projects/7Metabolomics/Library/Lipid/lipid_library_v0.02.txt"
+# templateFile = r"/Users/jcho/OneDrive - St. Jude Children's Research Hospital/UDrive/Research/Projects/7Metabolomics/Library/Lipid/lipid_library_v0.02.txt"
 # condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
 templateFile = sys.argv[1]
 condition = sys.argv[2]
@@ -23,7 +23,8 @@ conn = sqlite3.connect(dbName)
 proton = 1.007276466812
 
 # Read a text file containing the information of metabolomes
-df = pd.read_csv(templateFile, sep = "\t", engine = "python")
+# df = pd.read_csv(templateFile, sep = "\t", engine = "python")
+df = pd.read_csv(templateFile, sep="\t", encoding="latin1")
 ind = df[condition + "_linkms2"] != "na"
 df = df[ind].reset_index(drop = True)
 
