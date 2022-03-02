@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, utils, logging, numpy as np
+import sys, os, re, utils, logging, numpy as np
 import rpy2.robjects as ro
 from rpy2.robjects.vectors import IntVector, FloatVector
 from numpy.lib.recfunctions import merge_arrays, stack_arrays
@@ -656,7 +656,8 @@ def alignFeatures(fArray, xmlFiles, paramFile):
                     refN = tmpN
         else:
             try:
-                refNo = xmlFiles.index(params["reference_feature"])
+                refXml = re.sub(".feature$", ".mzXML", params["reference_feature"])
+                refNo = xmlFiles.index(refXml)
             except:
                 sys.exit("  'reference_feature' parameter should be correctly specified")
         print("  %s is chosen as the reference run" % os.path.basename(xmlFiles[refNo]))

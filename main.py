@@ -28,6 +28,7 @@ inputFiles = args[1:]
 # paramFile = r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/jumpm_positive.params"
 # inputFiles = [r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target1.mzXML",
 #               r"/Research/Projects/7Metabolomics/Dev/JUMPm_unlabel_python/comparison_test/python/IROA_c18_target2.mzXML"]
+# paramFile = r"C:\Users\jcho\OneDrive - St. Jude Children's Research Hospital\UDrive\Research\Projects\7Metabolomics\Dev\Unlabeled\test\jumpm_positive.params"
 
 logFile = "jump_m.log"
 if os.path.exists(logFile):
@@ -70,7 +71,7 @@ try:
         inputFiles = []
         for file in params["feature_files"]:
             # Read .feature file and append to featureArray
-            f = pd.read_csv(file, sep = "\t")
+            f = pd.read_csv(file, sep="\t")
             featureArray.append(f)
 
             # Define inputFiles array containing mzXML file(s)
@@ -104,8 +105,7 @@ try:
     logging.info("  #####################")
     logging.info("  # Feature alignment #")
     logging.info("  #####################")
-    fileNames = [os.path.basename(i) for i in inputFiles]
-    fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(featureArray, fileNames, paramFile)
+    fullFeatures, partialFeatures, unalignedFeatures = alignFeatures(featureArray, inputFiles, paramFile)
     print()
     logging.info("")
 
