@@ -13,8 +13,8 @@ import sys, os, sqlite3, numpy as np, pandas as pd
 # Handling of library template #
 ################################
 # Initialization (path of library template file and experimental condition)
-# templateFile = r"/Users/jcho/OneDrive - St. Jude Children's Research Hospital/UDrive/Research/Projects/7Metabolomics/Library/Lipid/lipid_library_v0.02.txt"
-# condition = "c18p"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
+# templateFile = r"/Users/jcho/OneDrive - St. Jude Children's Research Hospital/UDrive/Research/Projects/7Metabolomics/Library/Lipid/lipid_library_v0.03_desktop.txt"
+# condition = "c18n"    # Column name and ion mode, e.g. hilicn = HILIC column with negative ion mode
 templateFile = sys.argv[1]
 condition = sys.argv[2]
 dbName = "stjude_library_lipid_" + condition + ".db"
@@ -53,7 +53,6 @@ df = df[ind].reset_index(drop = True)
 colNameOtherIds = "other_ids(KEGG;HMDB;PubChem_CID;CAS)"    # Handling "other_ids"
 otherIds = df['idkegg'].map(str) + ';' + df['idhmdb'].map(str) + ';' + df['PC_CID'].map(str) + ";" + df["CAS"].map(str)
 dfLib = df[["idstjude", "name", "synonym", "formula", "monoisotopic_mass", "SMILES"]]
-dfLib["inchikey"] = "NA"
 dfLib = dfLib.rename(columns = {"idstjude": "id", "monoisotopic_mass": "mass"})
 dfLib.columns = dfLib.columns.str.lower()    # Column names are all lowercases
 dfLib[colNameOtherIds] = otherIds
@@ -76,6 +75,7 @@ for i in range(dfLib.shape[0]):
             dfLib["ion_type"].loc[i] = "[M" + sign + "H]" + sign
         else:
             dfLib["ion_type"].loc[i] = "[M" + sign + str(int(dfLib["charge"].loc[i])) + "H]" + sign
+dfLib = dfLib.assign(inchikey="NA")
 
 ##############################
 # Processing of MS2 spectrum #
@@ -88,8 +88,8 @@ for i in range(dfLib.shape[0]):
         # Although the path of .MS2 file contains a letter representing an ion mode (either "p" or "n"),
         # "uid" does not have the letter to make it consistent with "idstjude"
         uid = os.path.splitext(os.path.basename(ms2Path))[0][:-1]
-        dfMs2 = pd.read_csv(ms2Path, sep = "\t")
-        dfLib["precursor_mz"].iloc[i] = float(dfMs2.columns[0])
+        dfMs2 = pd.read_csv(ms2Path, sep="\s+|\t", engine="python")
+        dfLib.iloc[i, dfLib.columns.get_loc("precursor_mz")] = float(dfMs2.columns[0])  # To avoid pandas warning
         dfMs2.columns = ["mz", "intensity"]
         dfMs2.to_sql(uid, conn, if_exists = "replace", index = False)   # Table name is the same as compound id (e.g. sjm00001)
 
