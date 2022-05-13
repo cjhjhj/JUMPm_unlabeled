@@ -81,3 +81,8 @@ stjude_lipid_library_search_test.txt
 jump_m.log
 rt_shift_score.txt
 test/
+align_pos/
+QC1/
+QC2/
+QC3/
+ReAdW_2016/
